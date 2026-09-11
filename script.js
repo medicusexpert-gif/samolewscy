@@ -17,7 +17,7 @@ const monthNames = [
 const logoUrl = "logo.png";
 
 // Imiona techników są na stałe zgodne z poprzednią wersją harmonogramu.
-const technicianNames = ["Przemek", "Rafał", "Marcin", "Michał"];
+const technicianNames = ["Przemek", "Agata", "Zuzia", "Mikołaj"];
 
 let currentViewMonth = String(new Date().getMonth() + 1).padStart(2, '0');
 
