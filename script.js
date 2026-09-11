@@ -1,48 +1,78 @@
-```javascript
 const SPREADSHEET_ID = "1E4yKKlvwMpPxiM_hL8ZyV-csz_poxcNPkYSLL8fRJXM";
 
 const monthNames = [
-    "Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec",
-    "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień"
+    "Styczeń",
+    "Luty",
+    "Marzec",
+    "Kwiecień",
+    "Maj",
+    "Czerwiec",
+    "Lipiec",
+    "Sierpień",
+    "Wrzesień",
+    "Październik",
+    "Listopad",
+    "Grudzień"
 ];
 
 const logoUrl = "logo.png";
 
-let currentViewMonth = String(new Date().getMonth() + 1).padStart(2, '0');
+let currentViewMonth =
+    String(new Date().getMonth() + 1).padStart(2, '0');
 
+
+// ======================================================
+// POBIERANIE DANYCH Z GOOGLE SHEETS
+// ======================================================
 
 function getSheetUrl(monthNumber) {
-    const sheetName = monthNames[parseInt(monthNumber, 10) - 1];
+
+    const sheetName =
+        monthNames[parseInt(monthNumber, 10) - 1];
 
     return `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
 }
 
 
+// ======================================================
+// ODCZYT CSV
+// ======================================================
+
 function parseCSVLine(line) {
+
     const result = [];
     let cur = "";
     let inQuote = false;
 
-    const sep = line.includes(';') ? ';' : ',';
+    const sep =
+        line.includes(';') ? ';' : ',';
 
     for (let i = 0; i < line.length; i++) {
+
         let char = line[i];
 
         if (char === '"') {
-            if (inQuote && line[i + 1] === '"') {
+
+            if (
+                inQuote &&
+                line[i + 1] === '"'
+            ) {
                 cur += '"';
                 i++;
             } else {
                 inQuote = !inQuote;
             }
-        }
 
-        else if (char === sep && !inQuote) {
+        } else if (
+            char === sep &&
+            !inQuote
+        ) {
+
             result.push(cur.trim());
             cur = "";
-        }
 
-        else {
+        } else {
+
             cur += char;
         }
     }
@@ -55,9 +85,14 @@ function parseCSVLine(line) {
 }
 
 
+// ======================================================
+// GŁÓWNE ŁADOWANIE DANYCH
+// ======================================================
+
 async function loadData() {
 
-    const url = getSheetUrl(currentViewMonth);
+    const url =
+        getSheetUrl(currentViewMonth);
 
     try {
 
@@ -69,33 +104,58 @@ async function loadData() {
             throw new Error(`HTTP ${res.status}`);
         }
 
-        const rawData = await res.text();
+        const rawData =
+            await res.text();
 
-        const rows = rawData
-            .split(/\r?\n/)
-            .filter(line => line.trim() !== "")
-            .map(parseCSVLine);
+        const rows =
+            rawData
+                .split(/\r?\n/)
+                .filter(line => line.trim() !== "")
+                .map(parseCSVLine);
 
 
         if (!rows.length) {
-            throw new Error("Arkusz nie zawiera danych.");
+            throw new Error(
+                "Arkusz nie zawiera danych."
+            );
         }
 
+
+        // ==================================================
+        // DATA I ALARM
+        // ==================================================
 
         const now = new Date();
 
         const isAlarmTime =
             (now.getHours() > 15) ||
-            (now.getHours() === 15 && now.getMinutes() >= 30);
+            (
+                now.getHours() === 15 &&
+                now.getMinutes() >= 30
+            );
 
 
         const todayCSV =
-            `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+            `${now.getFullYear()}-${String(
+                now.getMonth() + 1
+            ).padStart(2, '0')}-${String(
+                now.getDate()
+            ).padStart(2, '0')}`;
 
 
         const realMonth =
-            String(now.getMonth() + 1).padStart(2, '0');
+            String(
+                now.getMonth() + 1
+            ).padStart(2, '0');
 
+
+        const isCurrentMonthViewed =
+            currentViewMonth === realMonth;
+
+
+        // ==================================================
+        // TABELA
+        // ==================================================
 
         let html = "<table>";
 
@@ -117,11 +177,16 @@ async function loadData() {
 
         rows.forEach((row, i) => {
 
+            // ----------------------------------------------
+            // LICZENIE TYGODNI
+            // ----------------------------------------------
 
             if (
                 i > 1 &&
                 row[0] &&
-                row[0].toLowerCase().includes("poniedziałek")
+                row[0]
+                    .toLowerCase()
+                    .includes("poniedziałek")
             ) {
                 weekCounter++;
             }
@@ -133,32 +198,48 @@ async function loadData() {
                     : "week-odd";
 
 
+            // ----------------------------------------------
+            // DZISIAJ
+            // ----------------------------------------------
+
             const isToday =
                 row[1] &&
                 row[1].trim() === todayCSV;
 
 
             const todayRowClass =
-                isToday ? " today-row" : "";
+                isToday
+                    ? " today-row"
+                    : "";
 
 
-            html += `<tr class="${weekClass}${todayRowClass}">`;
+            html +=
+                `<tr class="${weekClass}${todayRowClass}">`;
 
 
             row.forEach((cell, j) => {
 
-                if (j > 5) return;
+                // Maksymalnie 6 kolumn:
+                // Dzień / Data / 4 techników
+
+                if (j > 5) {
+                    return;
+                }
 
 
-                /*
-                 * PIERWSZY WIERSZ
-                 *
-                 * Logo zajmuje tylko pierwszy wiersz.
-                 * colspan="2" oznacza szerokość kolumn Dzień + Data.
-                 */
+                // ==================================================
+                // PIERWSZY WIERSZ
+                // ==================================================
+
                 if (i === 0) {
 
                     if (j === 0) {
+
+                        /*
+                         * LOGO:
+                         * colspan=2 -> szerokość Dzień + Data
+                         * BRAK rowspan -> tylko pierwszy wiersz
+                         */
 
                         html += `
                             <th
@@ -167,9 +248,8 @@ async function loadData() {
                                 id="main-logo-container">
                             </th>
                         `;
-                    }
 
-                    else if (j > 1) {
+                    } else if (j > 1) {
 
                         const nameColors = [
                             "",
@@ -195,14 +275,17 @@ async function loadData() {
                 }
 
 
-                /*
-                 * DRUGI WIERSZ
-                 *
-                 * Ponieważ logo nie ma już rowspan="2",
-                 * musimy zachować dwie komórki pod logo:
-                 * Dzień oraz Data.
-                 */
+                // ==================================================
+                // DRUGI WIERSZ
+                // ==================================================
+
                 else if (i === 1) {
+
+                    /*
+                     * Logo nie ma już rowspan=2.
+                     * Dlatego tutaj muszą istnieć osobne
+                     * komórki dla Dnia i Daty.
+                     */
 
                     if (j === 0 || j === 1) {
 
@@ -213,9 +296,8 @@ async function loadData() {
                                 ">
                             </th>
                         `;
-                    }
 
-                    else if (j > 1) {
+                    } else if (j > 1) {
 
                         html += `
                             <th
@@ -231,21 +313,26 @@ async function loadData() {
                 }
 
 
-                /*
-                 * WIERSZE Z DANYMI
-                 */
+                // ==================================================
+                // DANE
+                // ==================================================
+
                 else {
 
                     let className =
-                        (j === 0) ? "day" :
-                        (j === 1) ? "date" :
-                        "tech-data";
+                        (j === 0)
+                            ? "day"
+                            : (j === 1)
+                                ? "date"
+                                : "tech-data";
 
 
                     let content =
-                        (j === 0) ? shortenDay(cell) :
-                        (j === 1) ? shortenDate(cell) :
-                        cell;
+                        (j === 0)
+                            ? shortenDay(cell)
+                            : (j === 1)
+                                ? shortenDate(cell)
+                                : cell;
 
 
                     let inlineStyle = "";
@@ -256,9 +343,10 @@ async function loadData() {
                         String(cell).toLowerCase();
 
 
-                    /*
-                     * Sprawdzamy miesiąc na podstawie daty.
-                     */
+                    // ----------------------------------------------
+                    // SPRAWDZENIE MIESIĄCA
+                    // ----------------------------------------------
+
                     const rowDatePart =
                         row[1]
                             ? row[1].split("-")
@@ -272,26 +360,26 @@ async function loadData() {
 
 
                     const isCellInSelectedMonth =
-                        (rowMonth === currentViewMonth);
+                        rowMonth === currentViewMonth;
 
+
+                    // ----------------------------------------------
+                    // KOMÓRKI TECHNIKÓW
+                    // ----------------------------------------------
 
                     if (j > 1) {
 
-                        /*
-                         * Dane z innych miesięcy są wygaszone.
-                         */
                         if (!isCellInSelectedMonth) {
 
                             inlineStyle =
                                 "color: #64748b;";
-                        }
 
-                        else {
+                        } else {
 
-                            /*
-                             * Alarm 8-16 po 15:30
-                             * tylko dla dzisiejszego dnia.
-                             */
+                            // --------------------------------------
+                            // ALARM 8-16 PO 15:30
+                            // --------------------------------------
+
                             if (
                                 cellText.includes("8-16") &&
                                 isToday &&
@@ -303,23 +391,21 @@ async function loadData() {
                             }
 
 
-                            /*
-                             * Kolorowanie 8-16.
-                             */
-                            if (cellText.includes("8-16")) {
+                            // --------------------------------------
+                            // 8-16 NA NIEBIESKO
+                            // --------------------------------------
+
+                            if (
+                                cellText.includes("8-16")
+                            ) {
 
                                 content =
                                     content.replace(
                                         /8-16/gi,
                                         '<span class="neon-blue-text">8-16</span>'
                                     );
-                            }
 
-
-                            /*
-                             * Parking / 8:00 na szaro.
-                             */
-                            else if (
+                            } else if (
                                 cellText.includes("parking") ||
                                 cellText.includes("8:00")
                             ) {
@@ -328,22 +414,26 @@ async function loadData() {
                                     "color: #64748b;";
                             }
                         }
-                    }
 
+                    } else {
 
-                    else {
+                        // ------------------------------------------
+                        // DZIEŃ / DATA
+                        // ------------------------------------------
 
-                        /*
-                         * Dzień i data dla innych miesięcy
-                         * są wygaszone.
-                         */
-                        if (!isCellInSelectedMonth) {
+                        if (
+                            !isCellInSelectedMonth
+                        ) {
 
                             inlineStyle =
                                 "color: #475569;";
                         }
                     }
 
+
+                    // ----------------------------------------------
+                    // KOMÓRKA
+                    // ----------------------------------------------
 
                     html += `
                         <td class="${className}${specialClass}">
@@ -360,22 +450,29 @@ async function loadData() {
 
 
             html += "</tr>";
-
         });
 
 
         html += "</table>";
 
 
-        document.getElementById("table-container").innerHTML =
-            html;
+        // ==================================================
+        // WSTAWIENIE TABELI
+        // ==================================================
+
+        document.getElementById(
+            "table-container"
+        ).innerHTML = html;
 
 
-        /*
-         * Wstawienie logo.
-         */
+        // ==================================================
+        // LOGO
+        // ==================================================
+
         const logoCont =
-            document.getElementById("main-logo-container");
+            document.getElementById(
+                "main-logo-container"
+            );
 
 
         if (logoCont) {
@@ -389,23 +486,33 @@ async function loadData() {
         }
 
 
-        /*
-         * Czas ostatniej aktualizacji.
-         */
-        document.getElementById("update-time").innerText =
+        // ==================================================
+        // CZAS AKTUALIZACJI
+        // ==================================================
+
+        document.getElementById(
+            "update-time"
+        ).innerText =
             new Date().toLocaleTimeString();
 
+
+        // ==================================================
+        // WEEKENDY
+        // ==================================================
 
         hideWeekends();
 
 
-        /*
-         * Uruchomienie przewijania długich tekstów.
-         */
-        setTimeout(initSmartMarquee, 200);
+        // ==================================================
+        // PRZEWIJANIE
+        // ==================================================
+
+        setTimeout(
+            initSmartMarquee,
+            200
+        );
 
     }
-
 
     catch (err) {
 
@@ -415,21 +522,26 @@ async function loadData() {
         );
 
 
-        /*
-         * Ponowna próba po 10 sekundach.
-         */
-        setTimeout(loadData, 10000);
+        // Próba ponownie po 10 sekundach
+
+        setTimeout(
+            loadData,
+            10000
+        );
     }
 }
 
 
-/*
- * Automatyczne przewijanie długich wpisów.
- */
+// ======================================================
+// PRZEWIJANIE DŁUGICH TEKSTÓW
+// ======================================================
+
 function initSmartMarquee() {
 
     const spans =
-        document.querySelectorAll('.tech-data span');
+        document.querySelectorAll(
+            '.tech-data span'
+        );
 
 
     spans.forEach(span => {
@@ -443,7 +555,10 @@ function initSmartMarquee() {
         );
 
 
-        if (span.offsetWidth > box.offsetWidth) {
+        if (
+            span.offsetWidth >
+            box.offsetWidth
+        ) {
 
             box.style.justifyContent =
                 "flex-start";
@@ -464,9 +579,8 @@ function initSmartMarquee() {
             span.classList.add(
                 'animate-scroll'
             );
-        }
 
-        else {
+        } else {
 
             box.style.justifyContent =
                 "center";
@@ -475,9 +589,10 @@ function initSmartMarquee() {
 }
 
 
-/*
- * Skracanie nazw dni.
- */
+// ======================================================
+// SKRACANIE DNI
+// ======================================================
+
 function shortenDay(day) {
 
     const days = {
@@ -493,15 +608,18 @@ function shortenDay(day) {
     };
 
 
-    return days[String(day).toLowerCase()] || day;
+    return (
+        days[
+            String(day).toLowerCase()
+        ] || day
+    );
 }
 
 
-/*
- * Skracanie daty.
- *
- * 2026-01-05 -> 05.01
- */
+// ======================================================
+// SKRACANIE DAT
+// ======================================================
+
 function shortenDate(dateStr) {
 
     const parts =
@@ -514,13 +632,16 @@ function shortenDate(dateStr) {
 }
 
 
-/*
- * Ukrywanie sobót i niedziel.
- */
+// ======================================================
+// UKRYWANIE WEEKENDÓW
+// ======================================================
+
 function hideWeekends() {
 
     const rows =
-        document.querySelectorAll("table tr");
+        document.querySelectorAll(
+            "table tr"
+        );
 
 
     rows.forEach((row) => {
@@ -544,15 +665,20 @@ function hideWeekends() {
 }
 
 
-/*
- * Przyciski miesięcy.
- */
+// ======================================================
+// NAWIGACJA MIESIĘCY
+// ======================================================
+
 function renderNav() {
 
     let navHtml = "";
 
 
-    for (let i = 1; i <= 12; i++) {
+    for (
+        let i = 1;
+        i <= 12;
+        i++
+    ) {
 
         const m =
             String(i).padStart(2, '0');
@@ -568,14 +694,17 @@ function renderNav() {
     }
 
 
-    document.getElementById("month-nav").innerHTML =
+    document.getElementById(
+        "month-nav"
+    ).innerHTML =
         navHtml;
 }
 
 
-/*
- * Zmiana miesiąca.
- */
+// ======================================================
+// ZMIANA MIESIĄCA
+// ======================================================
+
 function changeMonth(m) {
 
     currentViewMonth =
@@ -584,18 +713,20 @@ function changeMonth(m) {
 
     renderNav();
 
-
     loadData();
 }
 
 
-/*
- * Zegar + nagłówek miesiąca.
- */
+// ======================================================
+// ZEGAR + NAGŁÓWEK
+// ======================================================
+
 function updateClock() {
 
     const clock =
-        document.getElementById("clock");
+        document.getElementById(
+            "clock"
+        );
 
 
     const now =
@@ -605,7 +736,9 @@ function updateClock() {
     if (clock) {
 
         clock.innerText =
-            now.toLocaleTimeString("pl-PL");
+            now.toLocaleTimeString(
+                "pl-PL"
+            );
     }
 
 
@@ -618,16 +751,21 @@ function updateClock() {
     if (monthHeader) {
 
         monthHeader.innerText =
-            `${monthNames[
-                parseInt(currentViewMonth) - 1
-            ].toUpperCase()} 2026`;
+            `${
+                monthNames[
+                    parseInt(
+                        currentViewMonth
+                    ) - 1
+                ].toUpperCase()
+            } 2026`;
     }
 }
 
 
-/*
- * Start.
- */
+// ======================================================
+// START
+// ======================================================
+
 renderNav();
 
 loadData();
@@ -640,11 +778,9 @@ setInterval(
 updateClock();
 
 
-/*
- * Automatyczne odświeżanie co 3 minuty.
- */
+// Automatyczne odświeżanie co 3 minuty
+
 setInterval(
     loadData,
     180000
 );
-```
