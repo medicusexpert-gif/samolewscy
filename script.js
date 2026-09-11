@@ -1,255 +1,134 @@
-const SPREADSHEET_ID = "1E4yKKlvwMpPxiM_hL8ZyV-csz_poxcNPkYSLL8fRJXM";
+```javascript
+const spreadsheetId = "1E4yKKlvwMpPxiM_hL8ZyV-csz_poxcNPkYSLL8fRJXM";
 
-const monthNames = [
-    "Styczeń",
-    "Luty",
-    "Marzec",
-    "Kwiecień",
-    "Maj",
-    "Czerwiec",
-    "Lipiec",
-    "Sierpień",
-    "Wrzesień",
-    "Październik",
-    "Listopad",
-    "Grudzień"
-];
+const sheetNames = {
+    "01": "Styczeń",
+    "02": "Luty",
+    "03": "Marzec",
+    "04": "Kwiecień",
+    "05": "Maj",
+    "06": "Czerwiec",
+    "07": "Lipiec",
+    "08": "Sierpień",
+    "09": "Wrzesień",
+    "10": "Październik",
+    "11": "Listopad",
+    "12": "Grudzień"
+};
+
+const monthNames = ["Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec", "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień"];
 
 const logoUrl = "logo.png";
-
-let currentViewMonth =
-    String(new Date().getMonth() + 1).padStart(2, '0');
-
-
-// ======================================================
-// POBIERANIE DANYCH Z GOOGLE SHEETS
-// ======================================================
-
-function getSheetUrl(monthNumber) {
-
-    const sheetName =
-        monthNames[parseInt(monthNumber, 10) - 1];
-
-    return `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
-}
-
-
-// ======================================================
-// ODCZYT CSV
-// ======================================================
+let currentViewMonth = String(new Date().getMonth() + 1).padStart(2, '0');
 
 function parseCSVLine(line) {
-
     const result = [];
     let cur = "";
     let inQuote = false;
-
-    const sep =
-        line.includes(';') ? ';' : ',';
+    const sep = line.includes(';') ? ';' : ',';
 
     for (let i = 0; i < line.length; i++) {
-
         let char = line[i];
 
         if (char === '"') {
-
-            if (
-                inQuote &&
-                line[i + 1] === '"'
-            ) {
-                cur += '"';
-                i++;
-            } else {
-                inQuote = !inQuote;
-            }
-
-        } else if (
-            char === sep &&
-            !inQuote
-        ) {
-
+            inQuote = !inQuote;
+        } 
+        else if (char === sep && !inQuote) {
             result.push(cur.trim());
             cur = "";
-
-        } else {
-
+        } 
+        else {
             cur += char;
         }
     }
 
     result.push(cur.trim());
 
-    return result.map(cell =>
-        cell.replace(/^"(.*)"$/, '$1')
-    );
+    return result.map(cell => cell.replace(/^"(.*)"$/, '$1'));
 }
-
-
-// ======================================================
-// GŁÓWNE ŁADOWANIE DANYCH
-// ======================================================
 
 async function loadData() {
 
+    const sheetName = sheetNames[currentViewMonth];
+
     const url =
-        getSheetUrl(currentViewMonth);
+        `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
 
     try {
 
-        const res = await fetch(url, {
-            cache: "no-store"
-        });
+        const res = await fetch(url);
 
-        if (!res.ok) {
-            throw new Error(`HTTP ${res.status}`);
-        }
+        const rawData = await res.text();
 
-        const rawData =
-            await res.text();
-
-        const rows =
-            rawData
-                .split(/\r?\n/)
-                .filter(line => line.trim() !== "")
-                .map(parseCSVLine);
-
-
-        if (!rows.length) {
-            throw new Error(
-                "Arkusz nie zawiera danych."
-            );
-        }
-
-
-        // ==================================================
-        // DATA I ALARM
-        // ==================================================
+        const rows = rawData
+            .split(/\r?\n/)
+            .filter(line => line.trim() !== "")
+            .map(parseCSVLine);
 
         const now = new Date();
 
         const isAlarmTime =
             (now.getHours() > 15) ||
-            (
-                now.getHours() === 15 &&
-                now.getMinutes() >= 30
-            );
-
+            (now.getHours() === 15 && now.getMinutes() >= 30);
 
         const todayCSV =
-            `${now.getFullYear()}-${String(
-                now.getMonth() + 1
-            ).padStart(2, '0')}-${String(
-                now.getDate()
-            ).padStart(2, '0')}`;
-
+            `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
         const realMonth =
-            String(
-                now.getMonth() + 1
-            ).padStart(2, '0');
-
+            String(now.getMonth() + 1).padStart(2, '0');
 
         const isCurrentMonthViewed =
-            currentViewMonth === realMonth;
-
-
-        // ==================================================
-        // TABELA
-        // ==================================================
+            (currentViewMonth === realMonth);
 
         let html = "<table>";
 
-
-        html += `
-            <colgroup>
-                <col style="width: 100px;">
-                <col style="width: 130px;">
-                <col style="width: auto;">
-                <col style="width: auto;">
-                <col style="width: auto;">
-                <col style="width: auto;">
-            </colgroup>
-        `;
-
+        html += `<colgroup>
+            <col style="width: 100px;">
+            <col style="width: 130px;">
+            <col style="width: auto;">
+            <col style="width: auto;">
+            <col style="width: auto;">
+            <col style="width: auto;">
+        </colgroup>`;
 
         let weekCounter = 0;
 
-
         rows.forEach((row, i) => {
-
-            // ----------------------------------------------
-            // LICZENIE TYGODNI
-            // ----------------------------------------------
 
             if (
                 i > 1 &&
                 row[0] &&
-                row[0]
-                    .toLowerCase()
-                    .includes("poniedziałek")
+                row[0].toLowerCase().includes("poniedziałek")
             ) {
                 weekCounter++;
             }
-
 
             const weekClass =
                 weekCounter % 2 === 0
                     ? "week-even"
                     : "week-odd";
 
-
-            // ----------------------------------------------
-            // DZISIAJ
-            // ----------------------------------------------
-
             const isToday =
                 row[1] &&
                 row[1].trim() === todayCSV;
 
-
             const todayRowClass =
-                isToday
-                    ? " today-row"
-                    : "";
+                isToday ? " today-row" : "";
 
-
-            html +=
-                `<tr class="${weekClass}${todayRowClass}">`;
-
+            html += `<tr class="${weekClass}${todayRowClass}">`;
 
             row.forEach((cell, j) => {
 
-                // Maksymalnie 6 kolumn:
-                // Dzień / Data / 4 techników
-
-                if (j > 5) {
-                    return;
-                }
-
-
-                // ==================================================
-                // PIERWSZY WIERSZ
-                // ==================================================
+                if (j > 5) return;
 
                 if (i === 0) {
 
                     if (j === 0) {
 
-                        /*
-                         * LOGO:
-                         * colspan=2 -> szerokość Dzień + Data
-                         * BRAK rowspan -> tylko pierwszy wiersz
-                         */
+                        html += `<th class="logo-space" rowspan="2" colspan="2" id="main-logo-container"></th>`;
 
-                        html += `
-                            <th
-                                class="logo-space"
-                                colspan="2"
-                                id="main-logo-container">
-                            </th>
-                        `;
-
-                    } else if (j > 1) {
+                    } 
+                    else if (j > 1) {
 
                         const nameColors = [
                             "",
@@ -260,343 +139,165 @@ async function loadData() {
                             "#f472b6"
                         ];
 
-
-                        html += `
-                            <th
-                                style="
-                                    color: ${nameColors[j] || "#ffffff"};
-                                    font-size: 2.2vh;
-                                    font-weight: bold;
-                                ">
-                                ${cell}
-                            </th>
-                        `;
+                        html += `<th style="color: ${nameColors[j]}; font-size: 2.2vh; font-weight: bold;">${cell}</th>`;
                     }
-                }
 
-
-                // ==================================================
-                // DRUGI WIERSZ
-                // ==================================================
-
+                } 
                 else if (i === 1) {
 
-                    /*
-                     * Logo nie ma już rowspan=2.
-                     * Dlatego tutaj muszą istnieć osobne
-                     * komórki dla Dnia i Daty.
-                     */
-
-                    if (j === 0 || j === 1) {
-
-                        html += `
-                            <th
-                                style="
-                                    background: #1e293b;
-                                ">
-                            </th>
-                        `;
-
-                    } else if (j > 1) {
-
-                        html += `
-                            <th
-                                style="
-                                    color: #64748b;
-                                    font-size: 1.4vh;
-                                    font-weight: normal;
-                                ">
-                                ${cell}
-                            </th>
-                        `;
+                    if (j > 1) {
+                        html += `<th style="color: #64748b; font-size: 1.4vh; font-weight: normal;">${cell}</th>`;
                     }
-                }
 
-
-                // ==================================================
-                // DANE
-                // ==================================================
-
+                } 
                 else {
 
                     let className =
-                        (j === 0)
-                            ? "day"
-                            : (j === 1)
-                                ? "date"
-                                : "tech-data";
-
+                        (j === 0) ? "day" :
+                        (j === 1) ? "date" :
+                        "tech-data";
 
                     let content =
-                        (j === 0)
-                            ? shortenDay(cell)
-                            : (j === 1)
-                                ? shortenDate(cell)
-                                : cell;
-
+                        (j === 0) ? shortenDay(cell) :
+                        (j === 1) ? shortenDate(cell) :
+                        cell;
 
                     let inlineStyle = "";
                     let specialClass = "";
 
-
                     const cellText =
-                        String(cell).toLowerCase();
-
-
-                    // ----------------------------------------------
-                    // SPRAWDZENIE MIESIĄCA
-                    // ----------------------------------------------
+                        cell.toLowerCase();
 
                     const rowDatePart =
-                        row[1]
-                            ? row[1].split("-")
-                            : null;
-
+                        row[1] ? row[1].split("-") : null;
 
                     const rowMonth =
-                        rowDatePart
-                            ? rowDatePart[1]
-                            : null;
-
+                        rowDatePart ? rowDatePart[1] : null;
 
                     const isCellInSelectedMonth =
-                        rowMonth === currentViewMonth;
-
-
-                    // ----------------------------------------------
-                    // KOMÓRKI TECHNIKÓW
-                    // ----------------------------------------------
+                        (rowMonth === currentViewMonth);
 
                     if (j > 1) {
 
                         if (!isCellInSelectedMonth) {
 
-                            inlineStyle =
-                                "color: #64748b;";
+                            inlineStyle = "color: #64748b;";
 
-                        } else {
-
-                            // --------------------------------------
-                            // ALARM 8-16 PO 15:30
-                            // --------------------------------------
+                        } 
+                        else {
 
                             if (
                                 cellText.includes("8-16") &&
                                 isToday &&
                                 isAlarmTime
                             ) {
-
-                                specialClass =
-                                    " alarm-pulse";
+                                specialClass = " alarm-pulse";
                             }
 
-
-                            // --------------------------------------
-                            // 8-16 NA NIEBIESKO
-                            // --------------------------------------
-
-                            if (
-                                cellText.includes("8-16")
-                            ) {
+                            if (cellText.includes("8-16")) {
 
                                 content =
                                     content.replace(
-                                        /8-16/gi,
+                                        /8-16/i,
                                         '<span class="neon-blue-text">8-16</span>'
                                     );
 
-                            } else if (
+                            } 
+                            else if (
                                 cellText.includes("parking") ||
                                 cellText.includes("8:00")
                             ) {
 
-                                inlineStyle =
-                                    "color: #64748b;";
+                                inlineStyle = "color: #64748b;";
                             }
                         }
 
-                    } else {
+                    } 
+                    else {
 
-                        // ------------------------------------------
-                        // DZIEŃ / DATA
-                        // ------------------------------------------
-
-                        if (
-                            !isCellInSelectedMonth
-                        ) {
-
-                            inlineStyle =
-                                "color: #475569;";
+                        if (!isCellInSelectedMonth) {
+                            inlineStyle = "color: #475569;";
                         }
                     }
-
-
-                    // ----------------------------------------------
-                    // KOMÓRKA
-                    // ----------------------------------------------
 
                     html += `
                         <td class="${className}${specialClass}">
                             <div class="marquee-box">
-                                <span style="${inlineStyle}">
-                                    ${content}
-                                </span>
+                                <span style="${inlineStyle}">${content}</span>
                             </div>
                         </td>
                     `;
                 }
-
             });
-
 
             html += "</tr>";
         });
 
-
         html += "</table>";
 
-
-        // ==================================================
-        // WSTAWIENIE TABELI
-        // ==================================================
-
-        document.getElementById(
-            "table-container"
-        ).innerHTML = html;
-
-
-        // ==================================================
-        // LOGO
-        // ==================================================
+        document.getElementById("table-container").innerHTML = html;
 
         const logoCont =
-            document.getElementById(
-                "main-logo-container"
-            );
-
+            document.getElementById("main-logo-container");
 
         if (logoCont) {
-
-            logoCont.innerHTML = `
-                <img
-                    src="${logoUrl}"
-                    alt="Logo"
-                    class="table-logo">
-            `;
+            logoCont.innerHTML =
+                `<img src="${logoUrl}" alt="Logo" class="table-logo">`;
         }
 
-
-        // ==================================================
-        // CZAS AKTUALIZACJI
-        // ==================================================
-
-        document.getElementById(
-            "update-time"
-        ).innerText =
+        document.getElementById("update-time").innerText =
             new Date().toLocaleTimeString();
-
-
-        // ==================================================
-        // WEEKENDY
-        // ==================================================
 
         hideWeekends();
 
+        setTimeout(initSmartMarquee, 200);
 
-        // ==================================================
-        // PRZEWIJANIE
-        // ==================================================
+    } catch (err) {
 
-        setTimeout(
-            initSmartMarquee,
-            200
-        );
+        console.error("Błąd CSV:", err);
 
-    }
-
-    catch (err) {
-
-        console.error(
-            "Błąd Google Sheets:",
-            err
-        );
-
-
-        // Próba ponownie po 10 sekundach
-
-        setTimeout(
-            loadData,
-            10000
-        );
+        setTimeout(loadData, 10000);
     }
 }
-
-
-// ======================================================
-// PRZEWIJANIE DŁUGICH TEKSTÓW
-// ======================================================
 
 function initSmartMarquee() {
 
     const spans =
-        document.querySelectorAll(
-            '.tech-data span'
-        );
-
+        document.querySelectorAll('.tech-data span');
 
     spans.forEach(span => {
 
-        const box =
-            span.parentElement;
+        const box = span.parentElement;
 
+        span.classList.remove('animate-scroll');
 
-        span.classList.remove(
-            'animate-scroll'
-        );
+        if (span.offsetWidth > box.offsetWidth) {
 
-
-        if (
-            span.offsetWidth >
-            box.offsetWidth
-        ) {
-
-            box.style.justifyContent =
-                "flex-start";
-
+            box.style.justifyContent = "flex-start";
 
             const distance =
                 span.offsetWidth -
                 box.offsetWidth +
                 25;
 
-
             span.style.setProperty(
                 '--scroll-dist',
                 `-${distance}px`
             );
 
+            span.classList.add('animate-scroll');
 
-            span.classList.add(
-                'animate-scroll'
-            );
+        } 
+        else {
 
-        } else {
-
-            box.style.justifyContent =
-                "center";
+            box.style.justifyContent = "center";
         }
     });
 }
 
-
-// ======================================================
-// SKRACANIE DNI
-// ======================================================
-
 function shortenDay(day) {
 
     const days = {
-
         "poniedziałek": "Pon",
         "wtorek": "Wt",
         "środa": "Śr",
@@ -604,51 +305,29 @@ function shortenDay(day) {
         "piątek": "Pt",
         "sobota": "Sob",
         "niedziela": "Nd"
-
     };
 
-
-    return (
-        days[
-            String(day).toLowerCase()
-        ] || day
-    );
+    return days[day.toLowerCase()] || day;
 }
-
-
-// ======================================================
-// SKRACANIE DAT
-// ======================================================
 
 function shortenDate(dateStr) {
 
-    const parts =
-        String(dateStr).split("-");
-
+    const parts = dateStr.split("-");
 
     return parts.length === 3
         ? `${parts[2]}.${parts[1]}`
         : dateStr;
 }
 
-
-// ======================================================
-// UKRYWANIE WEEKENDÓW
-// ======================================================
-
 function hideWeekends() {
 
     const rows =
-        document.querySelectorAll(
-            "table tr"
-        );
-
+        document.querySelectorAll("table tr");
 
     rows.forEach((row) => {
 
         const dayCell =
             row.querySelector(".day");
-
 
         if (
             dayCell &&
@@ -657,130 +336,72 @@ function hideWeekends() {
                 dayCell.innerText === "Nd"
             )
         ) {
-
-            row.style.display =
-                "none";
+            row.style.display = "none";
         }
     });
 }
-
-
-// ======================================================
-// NAWIGACJA MIESIĘCY
-// ======================================================
 
 function renderNav() {
 
     let navHtml = "";
 
-
-    for (
-        let i = 1;
-        i <= 12;
-        i++
-    ) {
+    for (let i = 1; i <= 12; i++) {
 
         const m =
             String(i).padStart(2, '0');
 
-
         navHtml += `
             <button
                 class="nav-btn ${m === currentViewMonth ? 'active' : ''}"
-                onclick="changeMonth('${m}')">
+                onclick="changeMonth('${m}')"
+            >
                 ${monthNames[i - 1]}
             </button>
         `;
     }
 
-
-    document.getElementById(
-        "month-nav"
-    ).innerHTML =
+    document.getElementById("month-nav").innerHTML =
         navHtml;
 }
 
-
-// ======================================================
-// ZMIANA MIESIĄCA
-// ======================================================
-
 function changeMonth(m) {
 
-    currentViewMonth =
-        m;
-
+    currentViewMonth = m;
 
     renderNav();
 
     loadData();
 }
 
-
-// ======================================================
-// ZEGAR + NAGŁÓWEK
-// ======================================================
-
 function updateClock() {
 
     const clock =
-        document.getElementById(
-            "clock"
-        );
+        document.getElementById("clock");
 
-
-    const now =
-        new Date();
-
+    const now = new Date();
 
     if (clock) {
-
         clock.innerText =
-            now.toLocaleTimeString(
-                "pl-PL"
-            );
+            now.toLocaleTimeString("pl-PL");
     }
 
-
     const monthHeader =
-        document.getElementById(
-            "current-month-name"
-        );
-
+        document.getElementById("current-month-name");
 
     if (monthHeader) {
 
         monthHeader.innerText =
-            `${
-                monthNames[
-                    parseInt(
-                        currentViewMonth
-                    ) - 1
-                ].toUpperCase()
-            } 2026`;
+            `${monthNames[parseInt(currentViewMonth) - 1].toUpperCase()} 2026`;
     }
 }
-
-
-// ======================================================
-// START
-// ======================================================
 
 renderNav();
 
 loadData();
 
-setInterval(
-    updateClock,
-    1000
-);
+setInterval(updateClock, 1000);
 
 updateClock();
 
-
-// Automatyczne odświeżanie co 3 minuty
-
-setInterval(
-    loadData,
-    180000
-);
+setInterval(loadData, 180000);
+```
