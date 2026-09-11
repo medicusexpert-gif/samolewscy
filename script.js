@@ -1,6 +1,5 @@
 const sheetLinks = {
-
-    "01": "https://docs.google.com/spreadsheets/d/e/2PACX-1vT-_cxzQEMZ6N_YGHvHpHJ998D3JPyTNRcQlsp0PVOGBvdUa2QxZmdllBbrIXFX5ok6YZ_HMHj1nE--/pub?gid=396764005&single=true&output=csv",
+     "01": "https://docs.google.com/spreadsheets/d/e/2PACX-1vT-_cxzQEMZ6N_YGHvHpHJ998D3JPyTNRcQlsp0PVOGBvdUa2QxZmdllBbrIXFX5ok6YZ_HMHj1nE--/pub?gid=396764005&single=true&output=csv",
 
     "02": "https://docs.google.com/spreadsheets/d/e/2PACX-1vT-_cxzQEMZ6N_YGHvHpHJ998D3JPyTNRcQlsp0PVOGBvdUa2QxZmdllBbrIXFX5ok6YZ_HMHj1nE--/pub?gid=1700984441&single=true&output=csv",
 
@@ -95,12 +94,12 @@ else {
     // SPRAWDZANIE CZY WIERSZ NALEŻY DO WYBRANEGO MIESIĄCA
     // row[1] to data w formacie RRRR-MM-DD
     const rowDatePart = row[1] ? row[1].split("-") : null;
-    const rowh = rowDatePart ? rowDatePart[1] : null; 
-    const isCellInSelectedh = (rowh === currentViewh);
+    const rowMonth = rowDatePart ? rowDatePart[1] : null; 
+    const isCellInSelectedMonth = (rowMonth === currentViewMonth);
 
     if (j > 1) {
         // JEŚLI WIERSZ NIE JEST Z WYBRANEGO MIESIĄCA LUB OGLĄDAMY INNY MIESIĄC NIŻ OBECNY
-        if (!isCellInSelectedh) {
+        if (!isCellInSelectedMonth) {
             inlineStyle = "color: #64748b;"; // Wygaszenie (szary)
         } else {
             // Alarm dla dzisiejszego dnia po 15:30
@@ -117,7 +116,7 @@ else {
         }
     } else {
         // Dla kolumn Dzień i Data też stosujemy wygaszenie jeśli to inny miesiąc
-        if (!isCellInSelectedh) inlineStyle = "color: #475569;"; 
+        if (!isCellInSelectedMonth) inlineStyle = "color: #475569;"; 
     }
     
     html += `<td class="${className}${specialClass}">
@@ -181,13 +180,13 @@ function renderNav() {
     let navHtml = "";
     for (let i = 1; i <= 12; i++) {
         const m = String(i).padStart(2, '0');
-        navHtml += `<button class="nav-btn ${m === currentViewh ? 'active' : ''}" onclick="changeh('${m}')">${hNames[i-1]}</button>`;
+        navHtml += `<button class="nav-btn ${m === currentViewMonth ? 'active' : ''}" onclick="changeMonth('${m}')">${monthNames[i-1]}</button>`;
     }
-    document.getElementById("h-nav").innerHTML = navHtml;
+    document.getElementById("month-nav").innerHTML = navHtml;
 }
 
-function changeh(m) {
-    currentViewh = m;
+function changeMonth(m) {
+    currentViewMonth = m;
     renderNav();
     loadData();
 }
@@ -196,9 +195,10 @@ function updateClock() {
     const clock = document.getElementById("clock");
     const now = new Date();
     if (clock) clock.innerText = now.toLocaleTimeString("pl-PL");
-    const hHeader = document.getElementById("current-h-name");
-     if (monthHeader) monthHeader.innerText = `${monthNames[parseInt(currentViewMonth)-1].toUpperCase()} 2026`;
+    const monthHeader = document.getElementById("current-month-name");
+    if (monthHeader) monthHeader.innerText = `${monthNames[parseInt(currentViewMonth)-1].toUpperCase()} 2026`;
 }
+
 renderNav();
 loadData();
 setInterval(updateClock, 1000);
