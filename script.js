@@ -134,7 +134,7 @@ else {
         if (logoCont) logoCont.innerHTML = `<img src="${logoUrl}" alt="Logo" class="table-logo">`;
 
         document.getElementById("update-time").innerText = new Date().toLocaleTimeString();
-        hideWeekends();
+       
         setTimeout(initSmartMarquee, 200);
     } catch (err) { 
         console.error("Błąd CSV:", err); 
