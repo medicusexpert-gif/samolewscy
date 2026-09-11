@@ -197,8 +197,8 @@ function updateClock() {
     const now = new Date();
     if (clock) clock.innerText = now.toLocaleTimeString("pl-PL");
     const hHeader = document.getElementById("current-h-name");
-    if (monthHeader) monthHeader.innerText = `${monthNames[parseInt(currentViewMonth)-1].toUpperCase()} ${now.getFullYear()}`;
-
+    if (monthHeader) monthHeader.innerText = `${monthNames[parseInt(currentViewMonth)-1].toUpperCase()} 2026`;
+    
 renderNav();
 loadData();
 setInterval(updateClock, 1000);
