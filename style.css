@@ -1,283 +1,1130 @@
-* {
-    box-sizing: border-box;
-}
+const SPREADSHEET_ID = "1E4yKKlvwMpPxiM_hL8ZyV-csz_poxcNPkYSLL8fRJXM";
 
-body {
-    margin: 0;
-    background: #020617;
-    color: white;
-    font-family: Arial, sans-serif;
-    overflow: hidden;
-    height: 100vh;
-}
+/*
+ * Nazwy zakładek miesięcy w Google Sheets.
+ */
+const monthNames = [
+    "Styczeń",
+    "Luty",
+    "Marzec",
+    "Kwiecień",
+    "Maj",
+    "Czerwiec",
+    "Lipiec",
+    "Sierpień",
+    "Wrzesień",
+    "Październik",
+    "Listopad",
+    "Grudzień"
+];
 
-.wrapper {
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    padding: 0 0.5vw;
-}
+const logoUrl = "logo.png";
 
-#month-nav {
-    display: flex;
-    background: #0f172a;
-    padding: 3px;
-    gap: 4px;
-    border-bottom: 1px solid #1e293b;
-}
+/*
+ * Technicy.
+ */
+const technicianNames = [
+    "Przemek",
+    "Agata",
+    "Zuzia",
+    "Mikołaj"
+];
 
-.nav-btn {
-    background: #1e293b;
-    color: #94a3b8;
-    border: 1px solid #334155;
-    padding: 2px 8px;
-    font-size: 1.3vh;
-    cursor: pointer;
-    border-radius: 3px;
-}
-
-.nav-btn.active {
-    color: #00ff00;
-    border-color: #00ff00;
-    background: #064e3b;
-}
-
-.header {
-    height: 3.5vh;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0 1vw;
-    background: #0f172a;
-    border-bottom: 2px solid #1e293b;
-}
-
-.title {
-    font-size: 3.5vh;
-    font-weight: bold;
-    color: #38bdf8;
-    min-width: 250px;
-}
-
-.nav-container {
-    display: flex;
-    gap: 5px;
-    flex-wrap: wrap;
-    justify-content: center;
-    flex-grow: 1;
-    margin: 0 20px;
-}
-
-.time-box {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    min-width: 350px;
-    justify-content: flex-end;
-}
-
-.time {
-    font-size: 4vh;
-    font-family: 'Courier New', monospace;
-    font-weight: bold;
-    color: #ffffff;
-}
-
-.refresh-btn {
-    background: #0ea5e9;
-    color: white;
-    border: none;
-    padding: 10px 15px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 1.6vh;
-    font-weight: bold;
-}
-
-#table-container {
-    flex-grow: 1;
-    height: 88vh;
-    overflow: hidden;
-}
-
-table {
-    width: 100%;
-    height: 100%;
-    border-collapse: separate;
-    border-spacing: 2px;
-    table-layout: fixed;
-    color: #ffffff;
-}
 
 /*
 ============================================================
-LOGO
+ROK ŹRÓDŁOWY
+============================================================
 
-Logo zajmuje wyłącznie dwa pierwsze wiersze nagłówka.
-Nie pozwalamy mu wychodzić poza komórkę.
+Na początku ustawiamy aktualny rok jako awaryjny.
+Po pobraniu arkusza zostanie on zastąpiony rokiem
+odczytanym z B3:B35.
+*/
+
+let sourceYear = new Date().getFullYear();
+
+
+/*
+============================================================
+AKTUALNIE WYŚWIETLANY MIESIĄC
 ============================================================
 */
 
-.logo-space {
-    position: relative;
-    background: #1e293b !important;
-    overflow: hidden;
-    padding: 0 !important;
+let currentViewMonth =
+    String(new Date().getMonth() + 1).padStart(2, "0");
+
+
+/*
+============================================================
+URL GOOGLE SHEETS
+============================================================
+*/
+
+function getSheetUrl(monthNumber) {
+
+    const index =
+        parseInt(monthNumber, 10) - 1;
+
+    const sheetName =
+        monthNames[index];
+
+    return (
+        `https://docs.google.com/spreadsheets/d/` +
+        `${SPREADSHEET_ID}/gviz/tq?` +
+        `tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`
+    );
 }
 
-.table-logo {
-    position: absolute;
-    top: 50%;
-    left: 50%;
 
-    transform: translate(-50%, -50%);
+/*
+============================================================
+PARSOWANIE POJEDYNCZEJ LINII CSV
+============================================================
+*/
+
+function parseCSVLine(line) {
+
+    const result = [];
+
+    let cur = "";
+
+    let inQuote = false;
 
     /*
-     * Logo nie może rozszerzać komórki ani
-     * nachodzić na pierwszy dzień.
+     * Google Sheets najczęściej zwraca CSV z przecinkami.
+     * Zostawiamy również obsługę średników.
      */
-    width: 92%;
-    height: 92%;
+    const sep =
+        line.includes(";")
+            ? ";"
+            : ",";
 
-    object-fit: contain;
-    display: block;
 
-    max-width: 100%;
-    max-height: 100%;
-}
+    for (let i = 0; i < line.length; i++) {
 
-/*
-============================================================
-NAGŁÓWKI
-============================================================
-*/
+        const char =
+            line[i];
 
-th {
-    background: #1e293b;
-    text-transform: uppercase;
-    padding: 2px;
-}
 
-/*
-============================================================
-DNI I DATY
-============================================================
-*/
+        if (char === '"') {
 
-.day {
-    font-size: 1.8vh;
-    color: #94a3b8;
-    text-align: center;
-    font-weight: bold;
-}
+            /*
+             * Podwójny cudzysłów wewnątrz pola.
+             */
+            if (
+                inQuote &&
+                line[i + 1] === '"'
+            ) {
 
-.date {
-    font-size: 1.8vh;
-    color: #38bdf8;
-    text-align: center;
-    font-weight: bold;
-}
+                cur += '"';
 
-/*
-============================================================
-TECHNICY
-============================================================
-*/
+                i++;
 
-.tech-data {
-    text-align: center;
-    font-size: 2.4vh;
-    border: 1px solid #334155;
-    position: relative;
-    white-space: nowrap;
-}
+            } else {
 
-.week-odd td {
-    background: #0f172a;
-}
+                inQuote =
+                    !inQuote;
+            }
 
-.week-even td {
-    background: #1e293b;
-}
 
-/*
-============================================================
-DZISIAJ
-============================================================
-*/
+        } else if (
+            char === sep &&
+            !inQuote
+        ) {
 
-.today-row td {
-    background-color: rgba(0, 150, 0, 0.25) !important;
-    border-top: 3px solid #00ff00 !important;
-    border-bottom: 3px solid #00ff00 !important;
-    box-shadow: inset 0 0 15px rgba(0, 255, 0, 0.2);
-}
+            result.push(
+                cur.trim()
+            );
 
-/*
-============================================================
-TEKST W KOMÓRKACH
-============================================================
-*/
+            cur = "";
 
-.tech-data span {
-    color: inherit;
-}
 
-.neon-blue-text {
-    color: #00d2ff !important;
-    text-shadow:
-        0 0 8px #0044ff,
-        0 0 15px #0044ff !important;
-    font-weight: bold !important;
-}
+        } else {
 
-/*
-============================================================
-ALARM
-============================================================
-*/
-
-@keyframes alarm-red {
-    0% {
-        background-color: #450a0a;
-        box-shadow: inset 0 0 10px #ff0000;
+            cur += char;
+        }
     }
 
-    100% {
-        background-color: #ff0000;
-        box-shadow: inset 0 0 60px 20px #450a0a;
-    }
+
+    result.push(
+        cur.trim()
+    );
+
+
+    return result.map(
+        cell =>
+            cell.replace(
+                /^"(.*)"$/,
+                "$1"
+            )
+    );
 }
 
-.alarm-pulse {
-    animation: alarm-red 0.5s infinite alternate !important;
-}
-
-.alarm-pulse span {
-    text-shadow: 0 0 5px #000000;
-}
 
 /*
 ============================================================
-KOLORY TECHNIKÓW
+ROZPOZNAWANIE DATY
+============================================================
+
+Google Sheets może zwracać datę w kilku różnych formatach.
+
+Obsługujemy m.in.:
+
+2026-01-05
+05.01.2026
+5.1.2026
+05/01/2026
+5/1/2026
+Date(2026,0,5)
+
+Zwracamy:
+
+{
+    year: 2026,
+    month: 1,
+    day: 5
+}
+
+Jeżeli data nie zostanie rozpoznana:
+null
+*/
+
+function parseSourceDate(value) {
+
+    if (
+        value === null ||
+        value === undefined
+    ) {
+
+        return null;
+    }
+
+
+    let str =
+        String(value).trim();
+
+
+    if (!str) {
+
+        return null;
+    }
+
+
+    /*
+    --------------------------------------------------------
+    Google Visualization:
+    Date(2026,0,5)
+    --------------------------------------------------------
+    */
+
+    let match =
+        str.match(
+            /^Date\(\s*(\d{4})\s*,\s*(\d{1,2})\s*,\s*(\d{1,2})\s*\)$/
+        );
+
+
+    if (match) {
+
+        return {
+
+            year:
+                parseInt(
+                    match[1],
+                    10
+                ),
+
+            month:
+                parseInt(
+                    match[2],
+                    10
+                ) + 1,
+
+            day:
+                parseInt(
+                    match[3],
+                    10
+                )
+        };
+    }
+
+
+    /*
+    --------------------------------------------------------
+    RRRR-MM-DD
+    --------------------------------------------------------
+    */
+
+    match =
+        str.match(
+            /^(\d{4})-(\d{1,2})-(\d{1,2})/
+        );
+
+
+    if (match) {
+
+        return {
+
+            year:
+                parseInt(
+                    match[1],
+                    10
+                ),
+
+            month:
+                parseInt(
+                    match[2],
+                    10
+                ),
+
+            day:
+                parseInt(
+                    match[3],
+                    10
+                )
+        };
+    }
+
+
+    /*
+    --------------------------------------------------------
+    DD.MM.RRRR
+    --------------------------------------------------------
+    */
+
+    match =
+        str.match(
+            /^(\d{1,2})\.(\d{1,2})\.(\d{4})/
+        );
+
+
+    if (match) {
+
+        return {
+
+            year:
+                parseInt(
+                    match[3],
+                    10
+                ),
+
+            month:
+                parseInt(
+                    match[2],
+                    10
+                ),
+
+            day:
+                parseInt(
+                    match[1],
+                    10
+                )
+        };
+    }
+
+
+    /*
+    --------------------------------------------------------
+    DD/MM/RRRR
+    --------------------------------------------------------
+    */
+
+    match =
+        str.match(
+            /^(\d{1,2})\/(\d{1,2})\/(\d{4})/
+        );
+
+
+    if (match) {
+
+        return {
+
+            year:
+                parseInt(
+                    match[3],
+                    10
+                ),
+
+            month:
+                parseInt(
+                    match[2],
+                    10
+                ),
+
+            day:
+                parseInt(
+                    match[1],
+                    10
+                )
+        };
+    }
+
+
+    /*
+    --------------------------------------------------------
+    Ostatnia próba:
+    JavaScript Date()
+    --------------------------------------------------------
+    */
+
+    const parsed =
+        new Date(str);
+
+
+    if (
+        !isNaN(
+            parsed.getTime()
+        )
+    ) {
+
+        return {
+
+            year:
+                parsed.getFullYear(),
+
+            month:
+                parsed.getMonth() + 1,
+
+            day:
+                parsed.getDate()
+        };
+    }
+
+
+    return null;
+}
+
+
+/*
+============================================================
+POBIERANIE ROKU Z B3:B35
+============================================================
+
+To jest najważniejsza część poprawki.
+
+CSV:
+
+wiersz arkusza 1 = rows[0]
+wiersz arkusza 2 = rows[1]
+wiersz arkusza 3 = rows[2]
+
+Dlatego:
+
+B3 = rows[2][1]
+B35 = rows[34][1]
+
+Przeszukujemy wyłącznie B3:B35.
+*/
+
+function detectSourceYear(rows) {
+
+    for (
+        let rowIndex = 2;
+        rowIndex <= 34 &&
+        rowIndex < rows.length;
+        rowIndex++
+    ) {
+
+        const row =
+            rows[rowIndex];
+
+
+        if (
+            !row ||
+            !row[1]
+        ) {
+
+            continue;
+        }
+
+
+        const date =
+            parseSourceDate(
+                row[1]
+            );
+
+
+        if (
+            date &&
+            date.year
+        ) {
+
+            return date.year;
+        }
+    }
+
+
+    /*
+     * Jeżeli nie udało się znaleźć daty,
+     * zostawiamy dotychczasowy rok.
+     */
+    return null;
+}
+
+
+/*
+============================================================
+DATA -> DD.MM
 ============================================================
 */
 
-td:nth-child(3) {
-    border-left: 10px solid #38bdf8;
+function shortenDate(dateStr) {
+
+    const date =
+        parseSourceDate(
+            dateStr
+        );
+
+
+    if (!date) {
+
+        return dateStr;
+    }
+
+
+    return (
+        `${String(date.day).padStart(2, "0")}.` +
+        `${String(date.month).padStart(2, "0")}`
+    );
 }
 
-td:nth-child(4) {
-    border-left: 10px solid #818cf8;
+
+/*
+============================================================
+GŁÓWNE POBIERANIE DANYCH
+============================================================
+*/
+
+async function loadData() {
+
+    const baseUrl =
+        getSheetUrl(
+            currentViewMonth
+        );
+
+
+    /*
+     * Dodajemy znacznik czasu,
+     * żeby przeglądarka nie trzymała starego CSV.
+     */
+    const url =
+        `${baseUrl}&cacheBust=${Date.now()}`;
+
+
+    try {
+
+        const res =
+            await fetch(
+                url,
+                {
+                    cache: "no-store"
+                }
+            );
+
+
+        if (!res.ok) {
+
+            throw new Error(
+                `HTTP ${res.status}`
+            );
+        }
+
+
+        const rawData =
+            await res.text();
+
+
+        const rows =
+            rawData
+                .split(/\r?\n/)
+                .filter(
+                    line =>
+                        line.trim() !== ""
+                )
+                .map(
+                    parseCSVLine
+                );
+
+
+        if (!rows.length) {
+
+            throw new Error(
+                "Arkusz nie zawiera danych."
+            );
+        }
+
+
+        /*
+        ========================================================
+        ROK Z B3:B35
+        ========================================================
+        */
+
+        const detectedYear =
+            detectSourceYear(
+                rows
+            );
+
+
+        if (detectedYear) {
+
+            sourceYear =
+                detectedYear;
+        }
+
+
+        /*
+        ========================================================
+        AKTUALNA DATA
+        ========================================================
+        */
+
+        const now =
+            new Date();
+
+
+        const todayYear =
+            now.getFullYear();
+
+
+        const todayMonth =
+            now.getMonth() + 1;
+
+
+        const todayDay =
+            now.getDate();
+
+
+        /*
+        ========================================================
+        ALARM 8-16 PO 15:30
+        ========================================================
+        */
+
+        const isAlarmTime =
+            (
+                now.getHours() > 15
+            ) ||
+            (
+                now.getHours() === 15 &&
+                now.getMinutes() >= 30
+            );
+
+
+        /*
+        ========================================================
+        AKTUALNY MIESIĄC
+        ========================================================
+        */
+
+        const realMonth =
+            String(
+                todayMonth
+            ).padStart(
+                2,
+                "0"
+            );
+
+
+        /*
+        ========================================================
+        BUDOWANIE TABELI
+        ========================================================
+        */
+
+        let html =
+            "<table>";
+
+
+        html += `
+            <colgroup>
+                <col style="width: 100px;">
+                <col style="width: 130px;">
+                <col style="width: auto;">
+                <col style="width: auto;">
+                <col style="width: auto;">
+                <col style="width: auto;">
+            </colgroup>
+        `;
+
+
+        let weekCounter = 0;
+
+
+        rows.forEach(
+            (row, i) => {
+
+
+                /*
+                ------------------------------------------------
+                TYGODNIE
+                ------------------------------------------------
+                */
+
+                if (
+                    i > 1 &&
+                    row[0] &&
+                    String(row[0])
+                        .toLowerCase()
+                        .includes(
+                            "poniedziałek"
+                        )
+                ) {
+
+                    weekCounter++;
+                }
+
+
+                const weekClass =
+                    weekCounter % 2 === 0
+                        ? "week-even"
+                        : "week-odd";
+
+
+                /*
+                ------------------------------------------------
+                DATA WIERSZA
+                ------------------------------------------------
+                */
+
+                const rowDate =
+                    row[1]
+                        ? parseSourceDate(
+                            row[1]
+                        )
+                        : null;
+
+
+                /*
+                ------------------------------------------------
+                CZY DZISIAJ?
+                ------------------------------------------------
+                */
+
+                const isToday =
+                    rowDate &&
+                    rowDate.year === todayYear &&
+                    rowDate.month === todayMonth &&
+                    rowDate.day === todayDay;
+
+
+                const todayRowClass =
+                    isToday
+                        ? " today-row"
+                        : "";
+
+
+                html += `
+                    <tr class="${weekClass}${todayRowClass}">
+                `;
+
+
+                /*
+                =================================================
+                KOLUMNY
+                =================================================
+                */
+
+                row.forEach(
+                    (cell, j) => {
+
+
+                        /*
+                         * Maksymalnie 6 kolumn:
+                         *
+                         * 0 dzień
+                         * 1 data
+                         * 2 technik
+                         * 3 technik
+                         * 4 technik
+                         * 5 technik
+                         */
+
+                        if (j > 5) {
+
+                            return;
+                        }
+
+
+                        /*
+                        =================================================
+                        PIERWSZY WIERSZ
+                        =================================================
+                        */
+
+                        if (i === 0) {
+
+
+                            if (j === 0) {
+
+                                html += `
+                                    <th
+                                        class="logo-space"
+                                        rowspan="2"
+                                        colspan="2"
+                                        id="main-logo-container">
+                                    </th>
+                                `;
+
+
+                            } else if (j > 1) {
+
+
+                                const nameColors = [
+                                    "#38bdf8",
+                                    "#818cf8",
+                                    "#fbbf24",
+                                    "#f472b6"
+                                ];
+
+
+                                const technicianIndex =
+                                    j - 2;
+
+
+                                const technicianName =
+                                    technicianNames[
+                                        technicianIndex
+                                    ] || "";
+
+
+                                html += `
+                                    <th
+                                        style="
+                                            color: ${
+                                                nameColors[
+                                                    technicianIndex
+                                                ] || "#ffffff"
+                                            };
+                                            font-size: 2.2vh;
+                                            font-weight: bold;
+                                        ">
+                                        ${technicianName}
+                                    </th>
+                                `;
+                            }
+
+
+                        /*
+                        =================================================
+                        DRUGI WIERSZ
+                        =================================================
+                        */
+
+                        } else if (i === 1) {
+
+
+                            if (j > 1) {
+
+                                html += `
+                                    <th
+                                        style="
+                                            color: #64748b;
+                                            font-size: 1.4vh;
+                                            font-weight: normal;
+                                        ">
+                                        ${cell}
+                                    </th>
+                                `;
+                            }
+
+
+                        /*
+                        =================================================
+                        WIERSZE DANYCH
+                        =================================================
+                        */
+
+                        } else {
+
+
+                            let className =
+                                j === 0
+                                    ? "day"
+                                    : j === 1
+                                        ? "date"
+                                        : "tech-data";
+
+
+                            let content =
+                                j === 0
+                                    ? shortenDay(
+                                        cell
+                                    )
+                                    : j === 1
+                                        ? shortenDate(
+                                            cell
+                                        )
+                                        : cell;
+
+
+                            let inlineStyle = "";
+
+                            let specialClass = "";
+
+
+                            const cellText =
+                                String(cell)
+                                    .toLowerCase();
+
+
+                            /*
+                            ------------------------------------------------
+                            MIESIĄC DATY
+                            ------------------------------------------------
+                            */
+
+                            const rowMonth =
+                                rowDate
+                                    ? String(
+                                        rowDate.month
+                                    ).padStart(
+                                        2,
+                                        "0"
+                                    )
+                                    : null;
+
+
+                            const isCellInSelectedMonth =
+                                rowMonth ===
+                                currentViewMonth;
+
+
+                            /*
+                            =================================================
+                            KOMÓRKI TECHNIKÓW
+                            =================================================
+                            */
+
+                            if (j > 1) {
+
+
+                                if (
+                                    !isCellInSelectedMonth
+                                ) {
+
+                                    inlineStyle =
+                                        "color: #64748b;";
+
+
+                                } else {
+
+
+                                    /*
+                                    ------------------------------------------------
+                                    ALARM 8-16
+                                    ------------------------------------------------
+                                    */
+
+                                    if (
+                                        cellText.includes(
+                                            "8-16"
+                                        ) &&
+                                        isToday &&
+                                        isAlarmTime
+                                    ) {
+
+                                        specialClass =
+                                            " alarm-pulse";
+                                    }
+
+
+                                    /*
+                                    ------------------------------------------------
+                                    NIEBIESKIE 8-16
+                                    ------------------------------------------------
+                                    */
+
+                                    if (
+                                        cellText.includes(
+                                            "8-16"
+                                        )
+                                    ) {
+
+                                        content =
+                                            String(
+                                                content
+                                            ).replace(
+                                                /8-16/gi,
+                                                '<span class="neon-blue-text">8-16</span>'
+                                            );
+
+
+                                    } else if (
+                                        cellText.includes(
+                                            "parking"
+                                        ) ||
+                                        cellText.includes(
+                                            "8:00"
+                                        )
+                                    ) {
+
+                                        inlineStyle =
+                                            "color: #64748b;";
+                                    }
+                                }
+
+
+                            } else {
+
+
+                                /*
+                                ------------------------------------------------
+                                DZIEŃ / DATA
+                                ------------------------------------------------
+                                */
+
+                                if (
+                                    !isCellInSelectedMonth
+                                ) {
+
+                                    inlineStyle =
+                                        "color: #475569;";
+                                }
+                            }
+
+
+                            html += `
+                                <td class="${className}${specialClass}">
+                                    <div class="marquee-box">
+                                        <span style="${inlineStyle}">
+                                            ${content}
+                                        </span>
+                                    </div>
+                                </td>
+                            `;
+                        }
+                    }
+                );
+
+
+                html += "</tr>";
+            }
+        );
+
+
+        html += "</table>";
+
+
+        /*
+        ========================================================
+        WSTAWIENIE TABELI
+        ========================================================
+        */
+
+        const tableContainer =
+            document.getElementById(
+                "table-container"
+            );
+
+
+        if (tableContainer) {
+
+            tableContainer.innerHTML =
+                html;
+        }
+
+
+        /*
+        ========================================================
+        LOGO
+        ========================================================
+        */
+
+        const logoCont =
+            document.getElementById(
+                "main-logo-container"
+            );
+
+
+        if (logoCont) {
+
+            logoCont.innerHTML = `
+                <img
+                    src="${logoUrl}"
+                    alt="Logo"
+                    class="table-logo">
+            `;
+        }
+
+
+        /*
+        ========================================================
+        CZAS OSTATNIEJ AKTUALIZACJI
+        ========================================================
+        */
+
+        const updateTime =
+            document.getElementById(
+                "update-time"
+            );
+
+
+        if (updateTime) {
+
+            updateTime.innerText =
+                new Date()
+                    .toLocaleTimeString(
+                        "pl-PL"
+                    );
+        }
+
+
+        /*
+        ========================================================
+        WEEKENDY
+        ========================================================
+        */
+
+        hideWeekends();
+
+
+        /*
+        ========================================================
+        MARQUEE
+        ========================================================
+        */
+
+        setTimeout(
+            initSmartMarquee,
+            200
+        );
+
+
+        /*
+        ========================================================
+        NAGŁÓWEK
+        ========================================================
+
+        Ważne:
+        wywołujemy updateClock() DOPIERO PO pobraniu
+        roku z arkusza.
+
+        Dzięki temu styczniowy nagłówek nie zostaje
+        ze starym rokiem.
+        */
+
+        updateClock();
+
+
+    } catch (err) {
+
+        console.error(
+            "Błąd Google Sheets:",
+            err
+        );
+
+
+        /*
+        * Ponowna próba po 10 sekundach.
+        */
+
+        setTimeout(
+            loadData,
+            10000
+        );
+    }
 }
 
-td:nth-child(5) {
-    border-left: 10px solid #fbbf24;
-}
-
-td:nth-child(6) {
-    border-left: 10px solid #f472b6;
-}
 
 /*
 ============================================================
@@ -285,48 +1132,332 @@ MARQUEE
 ============================================================
 */
 
-.marquee-box {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    overflow: hidden;
-    padding: 0;
+function initSmartMarquee() {
+
+    const spans =
+        document.querySelectorAll(
+            ".tech-data span"
+        );
+
+
+    spans.forEach(
+        span => {
+
+            const box =
+                span.parentElement;
+
+
+            span.classList.remove(
+                "animate-scroll"
+            );
+
+
+            if (
+                span.offsetWidth >
+                box.offsetWidth
+            ) {
+
+                box.style.justifyContent =
+                    "flex-start";
+
+
+                const distance =
+                    span.offsetWidth -
+                    box.offsetWidth +
+                    25;
+
+
+                span.style.setProperty(
+                    "--scroll-dist",
+                    `-${distance}px`
+                );
+
+
+                span.classList.add(
+                    "animate-scroll"
+                );
+
+
+            } else {
+
+                box.style.justifyContent =
+                    "center";
+            }
+        }
+    );
 }
 
-.marquee-box span {
-    display: inline-block;
-    white-space: nowrap;
-    padding: 0 10px;
-}
-
-.animate-scroll {
-    animation: smart-scroll 10s linear infinite alternate;
-}
-
-@keyframes smart-scroll {
-
-    0%,
-    15% {
-        transform: translateX(0);
-    }
-
-    85%,
-    100% {
-        transform: translateX(var(--scroll-dist));
-    }
-}
 
 /*
 ============================================================
-STOPKA
+SKRÓCONY DZIEŃ
 ============================================================
 */
 
-.footer {
-    height: 2vh;
-    text-align: right;
-    font-size: 1.2vh;
-    color: #475569;
-    padding-right: 10px;
+function shortenDay(day) {
+
+    const days = {
+
+        "poniedziałek": "Pon",
+        "wtorek": "Wt",
+        "środa": "Śr",
+        "czwartek": "Czw",
+        "piątek": "Pt",
+        "sobota": "Sob",
+        "niedziela": "Nd"
+    };
+
+
+    return (
+        days[
+            String(day)
+                .toLowerCase()
+        ] || day
+    );
 }
+
+
+/*
+============================================================
+UKRYWANIE WEEKENDÓW
+============================================================
+*/
+
+function hideWeekends() {
+
+    const rows =
+        document.querySelectorAll(
+            "table tr"
+        );
+
+
+    rows.forEach(
+        row => {
+
+            const dayCell =
+                row.querySelector(
+                    ".day"
+                );
+
+
+            if (
+                dayCell &&
+                (
+                    dayCell.innerText === "Sob" ||
+                    dayCell.innerText === "Nd"
+                )
+            ) {
+
+                row.style.display =
+                    "none";
+            }
+        }
+    );
+}
+
+
+/*
+============================================================
+NAWIGACJA MIESIĘCY
+============================================================
+*/
+
+function renderNav() {
+
+    let navHtml = "";
+
+
+    for (
+        let i = 1;
+        i <= 12;
+        i++
+    ) {
+
+        const m =
+            String(i)
+                .padStart(
+                    2,
+                    "0"
+                );
+
+
+        navHtml += `
+            <button
+                class="nav-btn ${
+                    m === currentViewMonth
+                        ? "active"
+                        : ""
+                }"
+                onclick="changeMonth('${m}')">
+                ${monthNames[i - 1]}
+            </button>
+        `;
+    }
+
+
+    const monthNav =
+        document.getElementById(
+            "month-nav"
+        );
+
+
+    if (monthNav) {
+
+        monthNav.innerHTML =
+            navHtml;
+    }
+}
+
+
+/*
+============================================================
+ZMIANA MIESIĄCA
+============================================================
+*/
+
+function changeMonth(m) {
+
+    currentViewMonth =
+        m;
+
+
+    /*
+     * Najpierw zmieniamy aktywny przycisk.
+     */
+
+    renderNav();
+
+
+    /*
+     * Czyścimy starą tabelę,
+     * żeby przy zmianie miesiąca nie było
+     * przez chwilę poprzednich danych.
+     */
+
+    const tableContainer =
+        document.getElementById(
+            "table-container"
+        );
+
+
+    if (tableContainer) {
+
+        tableContainer.innerHTML =
+            "";
+    }
+
+
+    /*
+     * Pobieramy nowy miesiąc.
+     */
+
+    loadData();
+}
+
+
+/*
+============================================================
+ZEGAR + NAGŁÓWEK MIESIĄCA
+============================================================
+*/
+
+function updateClock() {
+
+    const clock =
+        document.getElementById(
+            "clock"
+        );
+
+
+    const now =
+        new Date();
+
+
+    /*
+    --------------------------------------------------------
+    ZEGAR
+    --------------------------------------------------------
+    */
+
+    if (clock) {
+
+        clock.innerText =
+            now.toLocaleTimeString(
+                "pl-PL"
+            );
+    }
+
+
+    /*
+    --------------------------------------------------------
+    NAGŁÓWEK
+    --------------------------------------------------------
+
+    Przykład:
+
+    STYCZEŃ 2026
+
+    Rok pochodzi z B3:B35 aktualnie
+    załadowanej zakładki.
+    */
+
+    const monthHeader =
+        document.getElementById(
+            "current-month-name"
+        );
+
+
+    if (monthHeader) {
+
+        const monthIndex =
+            parseInt(
+                currentViewMonth,
+                10
+            ) - 1;
+
+
+        monthHeader.innerText =
+            `${monthNames[monthIndex].toUpperCase()} ${sourceYear}`;
+    }
+}
+
+
+/*
+============================================================
+START
+============================================================
+*/
+
+renderNav();
+
+
+loadData();
+
+
+/*
+============================================================
+ZEGAR CO SEKUNDĘ
+============================================================
+*/
+
+setInterval(
+    updateClock,
+    1000
+);
+
+
+updateClock();
+
+
+/*
+============================================================
+AUTOMATYCZNE ODŚWIEŻANIE
+============================================================
+
+Co 3 minuty pobieramy dane ponownie.
+*/
+
+setInterval(
+    loadData,
+    180000
+);
