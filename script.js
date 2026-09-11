@@ -1,10 +1,36 @@
+// ============================================================
+// HARMONOGRAM TECHNIKÓW
+// Źródło: opublikowany Google Sheets
+// ============================================================
+
 const publishedSheetId =
     "2PACX-1vT-_cxzQEMZ6N_YGHvHpHJ998D3JPyTNRcQlsp0PVOGBvdUa2QxZmdllBbrIXFX5ok6YZ_HMHj1nE--";
 
 const publishedUrl =
     `https://docs.google.com/spreadsheets/d/e/${publishedSheetId}/pubhtml`;
-   
-const monthNames = ["Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec", "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień"];
+
+const monthNames = [
+    "Styczeń",
+    "Luty",
+    "Marzec",
+    "Kwiecień",
+    "Maj",
+    "Czerwiec",
+    "Lipiec",
+    "Sierpień",
+    "Wrzesień",
+    "Październik",
+    "Listopad",
+    "Grudzień"
+];
+
+const newNames = [
+    "Przemek",
+    "Agata",
+    "Zuzia",
+    "Mikołaj"
+];
+
 const logoUrl = "logo.png";
 let currentViewMonth = String(new Date().getMonth() + 1).padStart(2, '0');
 
