@@ -1,36 +1,32 @@
-// ============================================================
-// HARMONOGRAM TECHNIKÓW
-// Źródło: opublikowany Google Sheets
-// ============================================================
+const sheetLinks = {
 
-const publishedSheetId =
-    "2PACX-1vT-_cxzQEMZ6N_YGHvHpHJ998D3JPyTNRcQlsp0PVOGBvdUa2QxZmdllBbrIXFX5ok6YZ_HMHj1nE--";
+    "01": "https://docs.google.com/spreadsheets/d/e/2PACX-1vT-_cxzQEMZ6N_YGHvHpHJ998D3JPyTNRcQlsp0PVOGBvdUa2QxZmdllBbrIXFX5ok6YZ_HMHj1nE--/pub?gid=396764005&single=true&output=csv",
 
-const publishedUrl =
-    `https://docs.google.com/spreadsheets/d/e/${publishedSheetId}/pubhtml`;
+    "02": "https://docs.google.com/spreadsheets/d/e/2PACX-1vT-_cxzQEMZ6N_YGHvHpHJ998D3JPyTNRcQlsp0PVOGBvdUa2QxZmdllBbrIXFX5ok6YZ_HMHj1nE--/pub?gid=1700984441&single=true&output=csv",
 
-const monthNames = [
-    "Styczeń",
-    "Luty",
-    "Marzec",
-    "Kwiecień",
-    "Maj",
-    "Czerwiec",
-    "Lipiec",
-    "Sierpień",
-    "Wrzesień",
-    "Październik",
-    "Listopad",
-    "Grudzień"
-];
+    "03": "https://docs.google.com/spreadsheets/d/e/2PACX-1vT-_cxzQEMZ6N_YGHvHpHJ998D3JPyTNRcQlsp0PVOGBvdUa2QxZmdllBbrIXFX5ok6YZ_HMHj1nE--/pub?gid=661544079&single=true&output=csv",
 
-const newNames = [
-    "Przemek",
-    "Agata",
-    "Zuzia",
-    "Mikołaj"
-];
+    "04": "https://docs.google.com/spreadsheets/d/e/2PACX-1vT-_cxzQEMZ6N_YGHvHpHJ998D3JPyTNRcQlsp0PVOGBvdUa2QxZmdllBbrIXFX5ok6YZ_HMHj1nE--/pub?gid=1409099469&single=true&output=csv",
 
+    "05": "https://docs.google.com/spreadsheets/d/e/2PACX-1vT-_cxzQEMZ6N_YGHvHpHJ998D3JPyTNRcQlsp0PVOGBvdUa2QxZmdllBbrIXFX5ok6YZ_HMHj1nE--/pub?gid=1104369464&single=true&output=csv",
+
+    "06": "https://docs.google.com/spreadsheets/d/e/2PACX-1vT-_cxzQEMZ6N_YGHvHpHJ998D3JPyTNRcQlsp0PVOGBvdUa2QxZmdllBbrIXFX5ok6YZ_HMHj1nE--/pub?gid=1791161639&single=true&output=csv",
+
+    "07": "https://docs.google.com/spreadsheets/d/e/2PACX-1vT-_cxzQEMZ6N_YGHvHpHJ998D3JPyTNRcQlsp0PVOGBvdUa2QxZmdllBbrIXFX5ok6YZ_HMHj1nE--/pub?gid=1046953585&single=true&output=csv",
+
+    "08": "https://docs.google.com/spreadsheets/d/e/2PACX-1vT-_cxzQEMZ6N_YGHvHpHJ998D3JPyTNRcQlsp0PVOGBvdUa2QxZmdllBbrIXFX5ok6YZ_HMHj1nE--/pub?gid=837722852&single=true&output=csv",
+
+    "09": "https://docs.google.com/spreadsheets/d/e/2PACX-1vT-_cxzQEMZ6N_YGHvHpHJ998D3JPyTNRcQlsp0PVOGBvdUa2QxZmdllBbrIXFX5ok6YZ_HMHj1nE--/pub?gid=253696398&single=true&output=csv",
+
+    "10": "https://docs.google.com/spreadsheets/d/e/2PACX-1vT-_cxzQEMZ6N_YGHvHpHJ998D3JPyTNRcQlsp0PVOGBvdUa2QxZmdllBbrIXFX5ok6YZ_HMHj1nE--/pub?gid=224796884&single=true&output=csv",
+
+    "11": "https://docs.google.com/spreadsheets/d/e/2PACX-1vT-_cxzQEMZ6N_YGHvHpHJ998D3JPyTNRcQlsp0PVOGBvdUa2QxZmdllBbrIXFX5ok6YZ_HMHj1nE--/pub?gid=832602075&single=true&output=csv",
+
+    "12": "https://docs.google.com/spreadsheets/d/e/2PACX-1vT-_cxzQEMZ6N_YGHvHpHJ998D3JPyTNRcQlsp0PVOGBvdUa2QxZmdllBbrIXFX5ok6YZ_HMHj1nE--/pub?gid=2070614942&single=true&output=csv"
+
+};
+
+const monthNames = ["Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec", "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień"];
 const logoUrl = "logo.png";
 let currentViewMonth = String(new Date().getMonth() + 1).padStart(2, '0');
 
