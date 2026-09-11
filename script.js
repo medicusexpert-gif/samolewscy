@@ -19,6 +19,9 @@ const logoUrl = "logo.png";
 // Imiona techników są na stałe zgodne z poprzednią wersją harmonogramu.
 const technicianNames = ["Przemek", "Agata", "Zuzia", "Mikołaj"];
 
+// Rok pobierany automatycznie z dat w pliku źródłowym.
+let sourceYear = new Date().getFullYear();
+
 let currentViewMonth = String(new Date().getMonth() + 1).padStart(2, '0');
 
 function getSheetUrl(monthNumber) {
@@ -80,7 +83,36 @@ async function loadData() {
             throw new Error("Arkusz nie zawiera danych.");
         }
 
+        /*
+         * ============================================================
+         * POBIERANIE ROKU Z PLIKU ŹRÓDŁOWEGO
+         * ============================================================
+         *
+         * Szukamy pierwszej daty w kolumnie B w formacie:
+         * RRRR-MM-DD
+         *
+         * Przykład:
+         * 2026-09-01
+         *
+         * Z niej pobieramy:
+         * 2026
+         *
+         * Dzięki temu nagłówek tablicy nie ma już wpisanego
+         * na stałe roku 2026.
+         */
+        for (const row of rows) {
+            if (row[1]) {
+                const match = String(row[1]).trim().match(/^(\d{4})-\d{2}-\d{2}$/);
+
+                if (match) {
+                    sourceYear = match[1];
+                    break;
+                }
+            }
+        }
+
         const now = new Date();
+
         const isAlarmTime =
             (now.getHours() > 15) ||
             (now.getHours() === 15 && now.getMinutes() >= 30);
@@ -88,8 +120,11 @@ async function loadData() {
         const todayCSV =
             `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
-        const realMonth = String(now.getMonth() + 1).padStart(2, '0');
-        const isCurrentMonthViewed = (currentViewMonth === realMonth);
+        const realMonth =
+            String(now.getMonth() + 1).padStart(2, '0');
+
+        const isCurrentMonthViewed =
+            (currentViewMonth === realMonth);
 
         let html = "<table>";
 
@@ -107,6 +142,7 @@ async function loadData() {
         let weekCounter = 0;
 
         rows.forEach((row, i) => {
+
             if (
                 i > 1 &&
                 row[0] &&
@@ -115,25 +151,32 @@ async function loadData() {
                 weekCounter++;
             }
 
-            const weekClass = weekCounter % 2 === 0
-                ? "week-even"
-                : "week-odd";
+            const weekClass =
+                weekCounter % 2 === 0
+                    ? "week-even"
+                    : "week-odd";
 
             const isToday =
                 row[1] &&
                 row[1].trim() === todayCSV;
 
-            const todayRowClass = isToday ? " today-row" : "";
+            const todayRowClass =
+                isToday ? " today-row" : "";
 
-            html += `<tr class="${weekClass}${todayRowClass}">`;
+            html += `
+                <tr class="${weekClass}${todayRowClass}">
+            `;
 
             row.forEach((cell, j) => {
+
                 // Harmonogram ma maksymalnie 6 kolumn:
                 // dzień, data + 4 techników.
                 if (j > 5) return;
 
                 if (i === 0) {
+
                     if (j === 0) {
+
                         html += `
                             <th
                                 class="logo-space"
@@ -142,7 +185,9 @@ async function loadData() {
                                 id="main-logo-container">
                             </th>
                         `;
+
                     } else if (j > 1) {
+
                         const nameColors = [
                             "#38bdf8",
                             "#818cf8",
@@ -151,6 +196,7 @@ async function loadData() {
                         ];
 
                         const technicianIndex = j - 2;
+
                         const technicianName =
                             technicianNames[technicianIndex] || "";
 
@@ -165,10 +211,11 @@ async function loadData() {
                             </th>
                         `;
                     }
-                }
 
-                else if (i === 1) {
+                } else if (i === 1) {
+
                     if (j > 1) {
+
                         html += `
                             <th
                                 style="
@@ -180,9 +227,9 @@ async function loadData() {
                             </th>
                         `;
                     }
-                }
 
-                else {
+                } else {
+
                     let className =
                         (j === 0) ? "day" :
                         (j === 1) ? "date" :
@@ -196,46 +243,64 @@ async function loadData() {
                     let inlineStyle = "";
                     let specialClass = "";
 
-                    const cellText = String(cell).toLowerCase();
+                    const cellText =
+                        String(cell).toLowerCase();
 
-                    const rowDatePart = row[1]
-                        ? row[1].split("-")
-                        : null;
+                    const rowDatePart =
+                        row[1]
+                            ? row[1].split("-")
+                            : null;
 
-                    const rowMonth = rowDatePart
-                        ? rowDatePart[1]
-                        : null;
+                    const rowMonth =
+                        rowDatePart
+                            ? rowDatePart[1]
+                            : null;
 
                     const isCellInSelectedMonth =
                         (rowMonth === currentViewMonth);
 
                     if (j > 1) {
+
                         if (!isCellInSelectedMonth) {
-                            inlineStyle = "color: #64748b;";
+
+                            inlineStyle =
+                                "color: #64748b;";
+
                         } else {
+
                             if (
                                 cellText.includes("8-16") &&
                                 isToday &&
                                 isAlarmTime
                             ) {
-                                specialClass = " alarm-pulse";
+                                specialClass =
+                                    " alarm-pulse";
                             }
 
                             if (cellText.includes("8-16")) {
-                                content = content.replace(
-                                    /8-16/gi,
-                                    '<span class="neon-blue-text">8-16</span>'
-                                );
+
+                                content =
+                                    content.replace(
+                                        /8-16/gi,
+                                        '<span class="neon-blue-text">8-16</span>'
+                                    );
+
                             } else if (
                                 cellText.includes("parking") ||
                                 cellText.includes("8:00")
                             ) {
-                                inlineStyle = "color: #64748b;";
+
+                                inlineStyle =
+                                    "color: #64748b;";
                             }
                         }
+
                     } else {
+
                         if (!isCellInSelectedMonth) {
-                            inlineStyle = "color: #475569;";
+
+                            inlineStyle =
+                                "color: #475569;";
                         }
                     }
 
@@ -256,9 +321,11 @@ async function loadData() {
 
         document.getElementById("table-container").innerHTML = html;
 
-        const logoCont = document.getElementById("main-logo-container");
+        const logoCont =
+            document.getElementById("main-logo-container");
 
         if (logoCont) {
+
             logoCont.innerHTML = `
                 <img
                     src="${logoUrl}"
@@ -275,7 +342,11 @@ async function loadData() {
         setTimeout(initSmartMarquee, 200);
 
     } catch (err) {
-        console.error("Błąd Google Sheets:", err);
+
+        console.error(
+            "Błąd Google Sheets:",
+            err
+        );
 
         // Ponowna próba po 10 sekundach.
         setTimeout(loadData, 10000);
@@ -283,33 +354,50 @@ async function loadData() {
 }
 
 function initSmartMarquee() {
-    const spans = document.querySelectorAll('.tech-data span');
+
+    const spans =
+        document.querySelectorAll('.tech-data span');
 
     spans.forEach(span => {
-        const box = span.parentElement;
 
-        span.classList.remove('animate-scroll');
+        const box =
+            span.parentElement;
+
+        span.classList.remove(
+            'animate-scroll'
+        );
 
         if (span.offsetWidth > box.offsetWidth) {
-            box.style.justifyContent = "flex-start";
+
+            box.style.justifyContent =
+                "flex-start";
 
             const distance =
-                span.offsetWidth - box.offsetWidth + 25;
+                span.offsetWidth -
+                box.offsetWidth +
+                25;
 
             span.style.setProperty(
                 '--scroll-dist',
                 `-${distance}px`
             );
 
-            span.classList.add('animate-scroll');
+            span.classList.add(
+                'animate-scroll'
+            );
+
         } else {
-            box.style.justifyContent = "center";
+
+            box.style.justifyContent =
+                "center";
         }
     });
 }
 
 function shortenDay(day) {
+
     const days = {
+
         "poniedziałek": "Pon",
         "wtorek": "Wt",
         "środa": "Śr",
@@ -319,11 +407,15 @@ function shortenDay(day) {
         "niedziela": "Nd"
     };
 
-    return days[String(day).toLowerCase()] || day;
+    return days[
+        String(day).toLowerCase()
+    ] || day;
 }
 
 function shortenDate(dateStr) {
-    const parts = String(dateStr).split("-");
+
+    const parts =
+        String(dateStr).split("-");
 
     return parts.length === 3
         ? `${parts[2]}.${parts[1]}`
@@ -331,26 +423,37 @@ function shortenDate(dateStr) {
 }
 
 function hideWeekends() {
-    const rows = document.querySelectorAll("table tr");
+
+    const rows =
+        document.querySelectorAll("table tr");
 
     rows.forEach((row) => {
-        const dayCell = row.querySelector(".day");
+
+        const dayCell =
+            row.querySelector(".day");
 
         if (
             dayCell &&
-            (dayCell.innerText === "Sob" ||
-             dayCell.innerText === "Nd")
+            (
+                dayCell.innerText === "Sob" ||
+                dayCell.innerText === "Nd"
+            )
         ) {
-            row.style.display = "none";
+
+            row.style.display =
+                "none";
         }
     });
 }
 
 function renderNav() {
+
     let navHtml = "";
 
     for (let i = 1; i <= 12; i++) {
-        const m = String(i).padStart(2, '0');
+
+        const m =
+            String(i).padStart(2, '0');
 
         navHtml += `
             <button
@@ -361,37 +464,61 @@ function renderNav() {
         `;
     }
 
-    document.getElementById("month-nav").innerHTML = navHtml;
+    document.getElementById(
+        "month-nav"
+    ).innerHTML = navHtml;
 }
 
 function changeMonth(m) {
+
     currentViewMonth = m;
+
     renderNav();
+
     loadData();
 }
 
 function updateClock() {
-    const clock = document.getElementById("clock");
-    const now = new Date();
+
+    const clock =
+        document.getElementById("clock");
+
+    const now =
+        new Date();
 
     if (clock) {
-        clock.innerText = now.toLocaleTimeString("pl-PL");
+
+        clock.innerText =
+            now.toLocaleTimeString("pl-PL");
     }
 
     const monthHeader =
-        document.getElementById("current-month-name");
+        document.getElementById(
+            "current-month-name"
+        );
 
     if (monthHeader) {
+
         monthHeader.innerText =
-            `${monthNames[parseInt(currentViewMonth) - 1].toUpperCase()} 2026`;
+            `${monthNames[
+                parseInt(currentViewMonth) - 1
+            ].toUpperCase()} ${sourceYear}`;
     }
 }
 
 renderNav();
+
 loadData();
 
-setInterval(updateClock, 1000);
+setInterval(
+    updateClock,
+    1000
+);
+
 updateClock();
 
 // Automatyczne odświeżanie co 3 minuty.
-setInterval(loadData, 180000);
+setInterval(
+    loadData,
+    180000
+);
