@@ -137,7 +137,6 @@ async function loadData() {
                         html += `
                             <th
                                 class="logo-space"
-                                rowspan="2"
                                 colspan="2"
                                 id="main-logo-container">
                             </th>
