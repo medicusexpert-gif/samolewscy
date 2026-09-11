@@ -95,12 +95,12 @@ else {
     // SPRAWDZANIE CZY WIERSZ NALEŻY DO WYBRANEGO MIESIĄCA
     // row[1] to data w formacie RRRR-MM-DD
     const rowDatePart = row[1] ? row[1].split("-") : null;
-    const rowMonth = rowDatePart ? rowDatePart[1] : null; 
-    const isCellInSelectedMonth = (rowMonth === currentViewMonth);
+    const rowh = rowDatePart ? rowDatePart[1] : null; 
+    const isCellInSelectedh = (rowh === currentViewh);
 
     if (j > 1) {
         // JEŚLI WIERSZ NIE JEST Z WYBRANEGO MIESIĄCA LUB OGLĄDAMY INNY MIESIĄC NIŻ OBECNY
-        if (!isCellInSelectedMonth) {
+        if (!isCellInSelectedh) {
             inlineStyle = "color: #64748b;"; // Wygaszenie (szary)
         } else {
             // Alarm dla dzisiejszego dnia po 15:30
@@ -117,7 +117,7 @@ else {
         }
     } else {
         // Dla kolumn Dzień i Data też stosujemy wygaszenie jeśli to inny miesiąc
-        if (!isCellInSelectedMonth) inlineStyle = "color: #475569;"; 
+        if (!isCellInSelectedh) inlineStyle = "color: #475569;"; 
     }
     
     html += `<td class="${className}${specialClass}">
@@ -181,13 +181,13 @@ function renderNav() {
     let navHtml = "";
     for (let i = 1; i <= 12; i++) {
         const m = String(i).padStart(2, '0');
-        navHtml += `<button class="nav-btn ${m === currentViewMonth ? 'active' : ''}" onclick="changeMonth('${m}')">${monthNames[i-1]}</button>`;
+        navHtml += `<button class="nav-btn ${m === currentViewh ? 'active' : ''}" onclick="changeh('${m}')">${hNames[i-1]}</button>`;
     }
-    document.getElementById("month-nav").innerHTML = navHtml;
+    document.getElementById("h-nav").innerHTML = navHtml;
 }
 
-function changeMonth(m) {
-    currentViewMonth = m;
+function changeh(m) {
+    currentViewh = m;
     renderNav();
     loadData();
 }
@@ -196,9 +196,8 @@ function updateClock() {
     const clock = document.getElementById("clock");
     const now = new Date();
     if (clock) clock.innerText = now.toLocaleTimeString("pl-PL");
-    const monthHeader = document.getElementById("current-month-name");
-    if (monthHeader) monthHeader.innerText = `${monthNames[parseInt(currentViewMonth)-1].toUpperCase()} 2026`;
-}
+    const hHeader = document.getElementById("current-h-name");
+    if (monthHeader) monthHeader.innerText = `${monthNames[parseInt(currentViewMonth)-1].toUpperCase()} ${now.getFullYear()}`;
 
 renderNav();
 loadData();
