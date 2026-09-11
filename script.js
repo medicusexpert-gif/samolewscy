@@ -1,13 +1,7 @@
 const SPREADSHEET_ID = "1E4yKKlvwMpPxiM_hL8ZyV-csz_poxcNPkYSLL8fRJXM";
 
 /*
- * Dane są pobierane bezpośrednio z nowego pliku Google Sheets.
- * Każdy miesiąc jest osobną zakładką o nazwie odpowiadającej miesiącowi:
- * Styczeń, Luty, Marzec, ... Grudzień.
- *
- * Imiona techników NIE są wpisane na sztywno.
- * Są pobierane automatycznie z pierwszego wiersza arkusza,
- * więc będą dokładnie takie, jak w nowym pliku Google Sheets.
+ * Każdy miesiąc jest osobną zakładką Google Sheets.
  */
 const monthNames = [
     "Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec",
@@ -16,117 +10,443 @@ const monthNames = [
 
 const logoUrl = "logo.png";
 
-// Imiona techników są na stałe zgodne z poprzednią wersją harmonogramu.
-const technicianNames = ["Przemek", "Agata", "Zuzia", "Mikołaj"];
+/*
+ * Imiona techników.
+ */
+const technicianNames = [
+    "Przemek",
+    "Agata",
+    "Zuzia",
+    "Mikołaj"
+];
 
-// Rok pobierany automatycznie z dat w pliku źródłowym.
+/*
+ * Rok jest pobierany automatycznie z dat
+ * znajdujących się w kolumnie B arkusza.
+ */
 let sourceYear = new Date().getFullYear();
 
-let currentViewMonth = String(new Date().getMonth() + 1).padStart(2, '0');
+let currentViewMonth =
+    String(new Date().getMonth() + 1).padStart(2, '0');
+
+
+/* ============================================================
+   GOOGLE SHEETS
+   ============================================================ */
 
 function getSheetUrl(monthNumber) {
-    const sheetName = monthNames[parseInt(monthNumber, 10) - 1];
+
+    const sheetName =
+        monthNames[parseInt(monthNumber, 10) - 1];
 
     return `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
 }
 
+
+/* ============================================================
+   CSV
+   ============================================================ */
+
 function parseCSVLine(line) {
+
     const result = [];
     let cur = "";
     let inQuote = false;
-    const sep = line.includes(';') ? ';' : ',';
+
+    const sep =
+        line.includes(';') ? ';' : ',';
 
     for (let i = 0; i < line.length; i++) {
-        let char = line[i];
+
+        const char = line[i];
 
         if (char === '"') {
-            // Obsługa podwójnego cudzysłowu wewnątrz pola CSV
-            if (inQuote && line[i + 1] === '"') {
+
+            if (
+                inQuote &&
+                line[i + 1] === '"'
+            ) {
                 cur += '"';
                 i++;
             } else {
                 inQuote = !inQuote;
             }
-        } else if (char === sep && !inQuote) {
+
+        } else if (
+            char === sep &&
+            !inQuote
+        ) {
+
             result.push(cur.trim());
             cur = "";
+
         } else {
+
             cur += char;
         }
     }
 
     result.push(cur.trim());
 
-    return result.map(cell => cell.replace(/^"(.*)"$/, '$1'));
+    return result.map(cell =>
+        cell.replace(/^"(.*)"$/, '$1')
+    );
 }
 
+
+/* ============================================================
+   PARSOWANIE DAT
+   ============================================================
+
+   Google Sheets może zwrócić datę w różnych formatach.
+
+   Obsługujemy m.in.:
+
+   2026-01-05
+   05.01.2026
+   5.1.2026
+   01/05/2026
+   1/5/2026
+   Date(2026,0,5)
+
+   Funkcja zwraca:
+
+   {
+       year: 2026,
+       month: 1,
+       day: 5
+   }
+
+   albo null, jeżeli nie uda się rozpoznać daty.
+*/
+
+function parseSourceDate(value) {
+
+    if (
+        value === null ||
+        value === undefined
+    ) {
+        return null;
+    }
+
+    let str =
+        String(value).trim();
+
+    if (!str) {
+        return null;
+    }
+
+
+    /* --------------------------------------------------------
+       Google Visualization format:
+
+       Date(2026,0,5)
+       -------------------------------------------------------- */
+
+    let match =
+        str.match(
+            /^Date\((\d{4}),\s*(\d{1,2}),\s*(\d{1,2})\)$/
+        );
+
+    if (match) {
+
+        return {
+            year: parseInt(match[1], 10),
+            month: parseInt(match[2], 10) + 1,
+            day: parseInt(match[3], 10)
+        };
+    }
+
+
+    /* --------------------------------------------------------
+       Format:
+
+       2026-01-05
+       -------------------------------------------------------- */
+
+    match =
+        str.match(
+            /^(\d{4})-(\d{1,2})-(\d{1,2})/
+        );
+
+    if (match) {
+
+        return {
+            year: parseInt(match[1], 10),
+            month: parseInt(match[2], 10),
+            day: parseInt(match[3], 10)
+        };
+    }
+
+
+    /* --------------------------------------------------------
+       Format:
+
+       05.01.2026
+       5.1.2026
+       -------------------------------------------------------- */
+
+    match =
+        str.match(
+            /^(\d{1,2})\.(\d{1,2})\.(\d{4})/
+        );
+
+    if (match) {
+
+        return {
+            year: parseInt(match[3], 10),
+            month: parseInt(match[2], 10),
+            day: parseInt(match[1], 10)
+        };
+    }
+
+
+    /* --------------------------------------------------------
+       Format:
+
+       05/01/2026
+       5/1/2026
+
+       W Google Sheets przy polskim arkuszu
+       może również pojawić się taki zapis.
+       Zakładamy tutaj DD/MM/YYYY.
+       -------------------------------------------------------- */
+
+    match =
+        str.match(
+            /^(\d{1,2})\/(\d{1,2})\/(\d{4})/
+        );
+
+    if (match) {
+
+        return {
+            year: parseInt(match[3], 10),
+            month: parseInt(match[2], 10),
+            day: parseInt(match[1], 10)
+        };
+    }
+
+
+    /* --------------------------------------------------------
+       Ostatnia próba przez Date()
+       -------------------------------------------------------- */
+
+    const parsed =
+        new Date(str);
+
+    if (!isNaN(parsed.getTime())) {
+
+        return {
+            year: parsed.getFullYear(),
+            month: parsed.getMonth() + 1,
+            day: parsed.getDate()
+        };
+    }
+
+    return null;
+}
+
+
+/* ============================================================
+   DATA -> YYYY-MM-DD
+   ============================================================ */
+
+function dateToISO(dateObj) {
+
+    if (!dateObj) {
+        return null;
+    }
+
+    return (
+        `${dateObj.year}-` +
+        `${String(dateObj.month).padStart(2, '0')}-` +
+        `${String(dateObj.day).padStart(2, '0')}`
+    );
+}
+
+
+/* ============================================================
+   DATA -> DD.MM
+   ============================================================ */
+
+function shortenDate(dateStr) {
+
+    const dateObj =
+        parseSourceDate(dateStr);
+
+    if (!dateObj) {
+        return dateStr;
+    }
+
+    return (
+        `${String(dateObj.day).padStart(2, '0')}.` +
+        `${String(dateObj.month).padStart(2, '0')}`
+    );
+}
+
+
+/* ============================================================
+   GŁÓWNE ŁADOWANIE DANYCH
+   ============================================================ */
+
 async function loadData() {
-    const url = getSheetUrl(currentViewMonth);
+
+    /*
+     * Dodajemy znacznik czasu,
+     * żeby przeglądarka nie korzystała ze starej wersji CSV.
+     */
+    const baseUrl =
+        getSheetUrl(currentViewMonth);
+
+    const url =
+        `${baseUrl}&cacheBust=${Date.now()}`;
+
 
     try {
-        const res = await fetch(url, {
-            cache: "no-store"
-        });
+
+        const res =
+            await fetch(url, {
+                cache: "no-store"
+            });
+
 
         if (!res.ok) {
-            throw new Error(`HTTP ${res.status}`);
+
+            throw new Error(
+                `HTTP ${res.status}`
+            );
         }
 
-        const rawData = await res.text();
 
-        const rows = rawData
-            .split(/\r?\n/)
-            .filter(line => line.trim() !== "")
-            .map(parseCSVLine);
+        const rawData =
+            await res.text();
+
+
+        const rows =
+            rawData
+                .split(/\r?\n/)
+                .filter(line =>
+                    line.trim() !== ""
+                )
+                .map(parseCSVLine);
+
 
         if (!rows.length) {
-            throw new Error("Arkusz nie zawiera danych.");
+
+            throw new Error(
+                "Arkusz nie zawiera danych."
+            );
         }
 
-        /*
-         * ============================================================
-         * POBIERANIE ROKU Z PLIKU ŹRÓDŁOWEGO
-         * ============================================================
-         *
-         * Szukamy pierwszej daty w kolumnie B w formacie:
-         * RRRR-MM-DD
-         *
-         * Przykład:
-         * 2026-09-01
-         *
-         * Z niej pobieramy:
-         * 2026
-         *
-         * Dzięki temu nagłówek tablicy nie ma już wpisanego
-         * na stałe roku 2026.
-         */
-        for (const row of rows) {
-            if (row[1]) {
-                const match = String(row[1]).trim().match(/^(\d{4})-\d{2}-\d{2}$/);
 
-                if (match) {
-                    sourceYear = match[1];
-                    break;
-                }
+        /* ====================================================
+           POBIERANIE ROKU Z B3:B35
+           ====================================================
+
+           Wiersz 1 CSV = indeks 0
+           Wiersz 2 CSV = indeks 1
+           Wiersz 3 CSV = indeks 2
+
+           Dlatego sprawdzamy:
+
+           rows[2] ... rows[34]
+
+           czyli dokładnie B3:B35.
+        */
+
+        let detectedYear = null;
+
+        for (
+            let rowIndex = 2;
+            rowIndex <= 34 && rowIndex < rows.length;
+            rowIndex++
+        ) {
+
+            const row =
+                rows[rowIndex];
+
+            if (!row || !row[1]) {
+                continue;
+            }
+
+            const dateObj =
+                parseSourceDate(row[1]);
+
+            if (
+                dateObj &&
+                dateObj.year
+            ) {
+
+                detectedYear =
+                    dateObj.year;
+
+                break;
             }
         }
 
-        const now = new Date();
+
+        /*
+         * Jeżeli znaleźliśmy rok w B3:B35,
+         * zapisujemy go jako rok źródłowy.
+         */
+        if (detectedYear) {
+
+            sourceYear =
+                detectedYear;
+        }
+
+
+        /* ====================================================
+           AKTUALNY CZAS
+           ==================================================== */
+
+        const now =
+            new Date();
+
 
         const isAlarmTime =
-            (now.getHours() > 15) ||
-            (now.getHours() === 15 && now.getMinutes() >= 30);
+            (
+                now.getHours() > 15
+            ) ||
+            (
+                now.getHours() === 15 &&
+                now.getMinutes() >= 30
+            );
 
-        const todayCSV =
-            `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
+        /*
+         * Dzisiejsza data jako obiekt.
+         */
+        const todayYear =
+            now.getFullYear();
+
+        const todayMonth =
+            now.getMonth() + 1;
+
+        const todayDay =
+            now.getDate();
+
+
+        /*
+         * Aktualny miesiąc.
+         */
         const realMonth =
-            String(now.getMonth() + 1).padStart(2, '0');
+            String(
+                todayMonth
+            ).padStart(2, '0');
+
 
         const isCurrentMonthViewed =
-            (currentViewMonth === realMonth);
+            currentViewMonth === realMonth;
 
-        let html = "<table>";
+
+        /* ====================================================
+           BUDOWANIE TABELI
+           ==================================================== */
+
+        let html =
+            "<table>";
+
 
         html += `
             <colgroup>
@@ -139,41 +459,94 @@ async function loadData() {
             </colgroup>
         `;
 
+
         let weekCounter = 0;
 
+
         rows.forEach((row, i) => {
+
+
+            /* ------------------------------------------------
+               LICZENIE TYGODNI
+               ------------------------------------------------ */
 
             if (
                 i > 1 &&
                 row[0] &&
-                row[0].toLowerCase().includes("poniedziałek")
+                String(row[0])
+                    .toLowerCase()
+                    .includes("poniedziałek")
             ) {
+
                 weekCounter++;
             }
+
 
             const weekClass =
                 weekCounter % 2 === 0
                     ? "week-even"
                     : "week-odd";
 
+
+            /* ------------------------------------------------
+               DATA WIERSZA
+               ------------------------------------------------ */
+
+            const rowDate =
+                row[1]
+                    ? parseSourceDate(row[1])
+                    : null;
+
+
+            /*
+             * Czy jest to dzisiejszy dzień?
+             */
             const isToday =
-                row[1] &&
-                row[1].trim() === todayCSV;
+                rowDate &&
+                rowDate.year === todayYear &&
+                rowDate.month === todayMonth &&
+                rowDate.day === todayDay;
+
 
             const todayRowClass =
-                isToday ? " today-row" : "";
+                isToday
+                    ? " today-row"
+                    : "";
+
 
             html += `
                 <tr class="${weekClass}${todayRowClass}">
             `;
 
+
+            /* =================================================
+               KOLUMNY
+               ================================================= */
+
             row.forEach((cell, j) => {
 
-                // Harmonogram ma maksymalnie 6 kolumn:
-                // dzień, data + 4 techników.
-                if (j > 5) return;
+
+                /*
+                 * Harmonogram ma 6 kolumn:
+                 *
+                 * 0 = dzień
+                 * 1 = data
+                 * 2 = technik 1
+                 * 3 = technik 2
+                 * 4 = technik 3
+                 * 5 = technik 4
+                 */
+                if (j > 5) {
+                    return;
+                }
+
+
+                /* =================================================
+                   PIERWSZY WIERSZ
+                   ================================================= */
 
                 if (i === 0) {
+
 
                     if (j === 0) {
 
@@ -186,7 +559,9 @@ async function loadData() {
                             </th>
                         `;
 
+
                     } else if (j > 1) {
+
 
                         const nameColors = [
                             "#38bdf8",
@@ -195,15 +570,25 @@ async function loadData() {
                             "#f472b6"
                         ];
 
-                        const technicianIndex = j - 2;
+
+                        const technicianIndex =
+                            j - 2;
+
 
                         const technicianName =
-                            technicianNames[technicianIndex] || "";
+                            technicianNames[
+                                technicianIndex
+                            ] || "";
+
 
                         html += `
                             <th
                                 style="
-                                    color: ${nameColors[technicianIndex] || "#ffffff"};
+                                    color: ${
+                                        nameColors[
+                                            technicianIndex
+                                        ] || "#ffffff"
+                                    };
                                     font-size: 2.2vh;
                                     font-weight: bold;
                                 ">
@@ -212,7 +597,13 @@ async function loadData() {
                         `;
                     }
 
+
+                /* =================================================
+                   DRUGI WIERSZ
+                   ================================================= */
+
                 } else if (i === 1) {
+
 
                     if (j > 1) {
 
@@ -228,62 +619,97 @@ async function loadData() {
                         `;
                     }
 
+
+                /* =================================================
+                   WIERSZE Z DANYMI
+                   ================================================= */
+
                 } else {
 
+
                     let className =
-                        (j === 0) ? "day" :
-                        (j === 1) ? "date" :
-                        "tech-data";
+                        j === 0
+                            ? "day"
+                            : j === 1
+                                ? "date"
+                                : "tech-data";
+
 
                     let content =
-                        (j === 0) ? shortenDay(cell) :
-                        (j === 1) ? shortenDate(cell) :
-                        cell;
+                        j === 0
+                            ? shortenDay(cell)
+                            : j === 1
+                                ? shortenDate(cell)
+                                : cell;
+
 
                     let inlineStyle = "";
                     let specialClass = "";
 
+
                     const cellText =
-                        String(cell).toLowerCase();
+                        String(cell)
+                            .toLowerCase();
 
-                    const rowDatePart =
-                        row[1]
-                            ? row[1].split("-")
-                            : null;
 
+                    /*
+                     * Miesiąc daty źródłowej.
+                     */
                     const rowMonth =
-                        rowDatePart
-                            ? rowDatePart[1]
+                        rowDate
+                            ? String(rowDate.month)
+                                .padStart(2, '0')
                             : null;
+
 
                     const isCellInSelectedMonth =
-                        (rowMonth === currentViewMonth);
+                        rowMonth === currentViewMonth;
+
+
+                    /* =================================================
+                       KOMÓRKI TECHNIKÓW
+                       ================================================= */
 
                     if (j > 1) {
+
 
                         if (!isCellInSelectedMonth) {
 
                             inlineStyle =
                                 "color: #64748b;";
 
+
                         } else {
 
+
+                            /*
+                             * Alarm 8-16 po 15:30
+                             * tylko dla dzisiejszego dnia.
+                             */
                             if (
                                 cellText.includes("8-16") &&
                                 isToday &&
                                 isAlarmTime
                             ) {
+
                                 specialClass =
                                     " alarm-pulse";
                             }
 
-                            if (cellText.includes("8-16")) {
+
+                            /*
+                             * Niebieskie 8-16.
+                             */
+                            if (
+                                cellText.includes("8-16")
+                            ) {
 
                                 content =
-                                    content.replace(
+                                    String(content).replace(
                                         /8-16/gi,
                                         '<span class="neon-blue-text">8-16</span>'
                                     );
+
 
                             } else if (
                                 cellText.includes("parking") ||
@@ -295,8 +721,14 @@ async function loadData() {
                             }
                         }
 
+
                     } else {
 
+
+                        /*
+                         * Dzień i data spoza wybranego miesiąca
+                         * są przygaszone.
+                         */
                         if (!isCellInSelectedMonth) {
 
                             inlineStyle =
@@ -304,25 +736,53 @@ async function loadData() {
                         }
                     }
 
+
                     html += `
                         <td class="${className}${specialClass}">
                             <div class="marquee-box">
-                                <span style="${inlineStyle}">${content}</span>
+                                <span style="${inlineStyle}">
+                                    ${content}
+                                </span>
                             </div>
                         </td>
                     `;
                 }
             });
 
+
             html += "</tr>";
         });
 
+
         html += "</table>";
 
-        document.getElementById("table-container").innerHTML = html;
+
+        /* ====================================================
+           WSTAWIENIE TABELI
+           ==================================================== */
+
+        const tableContainer =
+            document.getElementById(
+                "table-container"
+            );
+
+
+        if (tableContainer) {
+
+            tableContainer.innerHTML =
+                html;
+        }
+
+
+        /* ====================================================
+           LOGO
+           ==================================================== */
 
         const logoCont =
-            document.getElementById("main-logo-container");
+            document.getElementById(
+                "main-logo-container"
+            );
+
 
         if (logoCont) {
 
@@ -334,57 +794,117 @@ async function loadData() {
             `;
         }
 
-        document.getElementById("update-time").innerText =
-            new Date().toLocaleTimeString();
+
+        /* ====================================================
+           CZAS AKTUALIZACJI
+           ==================================================== */
+
+        const updateTime =
+            document.getElementById(
+                "update-time"
+            );
+
+
+        if (updateTime) {
+
+            updateTime.innerText =
+                new Date()
+                    .toLocaleTimeString("pl-PL");
+        }
+
+
+        /* ====================================================
+           UKRYWANIE WEEKENDÓW
+           ==================================================== */
 
         hideWeekends();
 
-        setTimeout(initSmartMarquee, 200);
+
+        /* ====================================================
+           MARQUEE
+           ==================================================== */
+
+        setTimeout(
+            initSmartMarquee,
+            200
+        );
+
+
+        /*
+         * Po załadowaniu danych od razu
+         * aktualizujemy nagłówek miesiąca i roku.
+         */
+        updateClock();
+
 
     } catch (err) {
+
 
         console.error(
             "Błąd Google Sheets:",
             err
         );
 
-        // Ponowna próba po 10 sekundach.
-        setTimeout(loadData, 10000);
+
+        /*
+         * Ponowna próba po 10 sekundach.
+         */
+        setTimeout(
+            loadData,
+            10000
+        );
     }
 }
+
+
+/* ============================================================
+   MARQUEE
+   ============================================================ */
 
 function initSmartMarquee() {
 
     const spans =
-        document.querySelectorAll('.tech-data span');
+        document.querySelectorAll(
+            '.tech-data span'
+        );
+
 
     spans.forEach(span => {
 
         const box =
             span.parentElement;
 
+
         span.classList.remove(
             'animate-scroll'
         );
 
-        if (span.offsetWidth > box.offsetWidth) {
+
+        if (
+            span.offsetWidth >
+            box.offsetWidth
+        ) {
 
             box.style.justifyContent =
                 "flex-start";
+
 
             const distance =
                 span.offsetWidth -
                 box.offsetWidth +
                 25;
 
+
             span.style.setProperty(
                 '--scroll-dist',
                 `-${distance}px`
             );
 
+
             span.classList.add(
                 'animate-scroll'
             );
+
 
         } else {
 
@@ -393,6 +913,11 @@ function initSmartMarquee() {
         }
     });
 }
+
+
+/* ============================================================
+   SKRÓCONY DZIEŃ TYGODNIA
+   ============================================================ */
 
 function shortenDay(day) {
 
@@ -407,30 +932,33 @@ function shortenDay(day) {
         "niedziela": "Nd"
     };
 
+
     return days[
-        String(day).toLowerCase()
+        String(day)
+            .toLowerCase()
     ] || day;
 }
 
-function shortenDate(dateStr) {
 
-    const parts =
-        String(dateStr).split("-");
-
-    return parts.length === 3
-        ? `${parts[2]}.${parts[1]}`
-        : dateStr;
-}
+/* ============================================================
+   UKRYWANIE WEEKENDÓW
+   ============================================================ */
 
 function hideWeekends() {
 
     const rows =
-        document.querySelectorAll("table tr");
+        document.querySelectorAll(
+            "table tr"
+        );
 
-    rows.forEach((row) => {
+
+    rows.forEach(row => {
 
         const dayCell =
-            row.querySelector(".day");
+            row.querySelector(
+                ".day"
+            );
+
 
         if (
             dayCell &&
@@ -446,78 +974,162 @@ function hideWeekends() {
     });
 }
 
+
+/* ============================================================
+   NAWIGACJA MIESIĘCY
+   ============================================================ */
+
 function renderNav() {
 
     let navHtml = "";
 
+
     for (let i = 1; i <= 12; i++) {
 
         const m =
-            String(i).padStart(2, '0');
+            String(i)
+                .padStart(2, '0');
+
 
         navHtml += `
             <button
-                class="nav-btn ${m === currentViewMonth ? 'active' : ''}"
+                class="nav-btn ${
+                    m === currentViewMonth
+                        ? 'active'
+                        : ''
+                }"
                 onclick="changeMonth('${m}')">
                 ${monthNames[i - 1]}
             </button>
         `;
     }
 
-    document.getElementById(
-        "month-nav"
-    ).innerHTML = navHtml;
+
+    const monthNav =
+        document.getElementById(
+            "month-nav"
+        );
+
+
+    if (monthNav) {
+
+        monthNav.innerHTML =
+            navHtml;
+    }
 }
+
+
+/* ============================================================
+   ZMIANA MIESIĄCA
+   ============================================================ */
 
 function changeMonth(m) {
 
-    currentViewMonth = m;
+    currentViewMonth =
+        m;
+
 
     renderNav();
+
+
+    /*
+     * Wyczyść starą tabelę przed
+     * załadowaniem nowego miesiąca.
+     */
+    const tableContainer =
+        document.getElementById(
+            "table-container"
+        );
+
+
+    if (tableContainer) {
+
+        tableContainer.innerHTML = "";
+    }
+
 
     loadData();
 }
 
+
+/* ============================================================
+   ZEGAR + NAGŁÓWEK
+   ============================================================ */
+
 function updateClock() {
 
     const clock =
-        document.getElementById("clock");
+        document.getElementById(
+            "clock"
+        );
+
 
     const now =
         new Date();
 
+
     if (clock) {
 
         clock.innerText =
-            now.toLocaleTimeString("pl-PL");
+            now.toLocaleTimeString(
+                "pl-PL"
+            );
     }
 
+
+    /*
+     * Nagłówek:
+     *
+     * STYCZEŃ 2026
+     *
+     * Rok pochodzi z B3:B35.
+     */
     const monthHeader =
         document.getElementById(
             "current-month-name"
         );
 
+
     if (monthHeader) {
 
+        const monthIndex =
+            parseInt(
+                currentViewMonth,
+                10
+            ) - 1;
+
+
         monthHeader.innerText =
-            `${monthNames[
-                parseInt(currentViewMonth) - 1
-            ].toUpperCase()} ${sourceYear}`;
+            `${monthNames[monthIndex].toUpperCase()} ${sourceYear}`;
     }
 }
+
+
+/* ============================================================
+   START
+   ============================================================ */
 
 renderNav();
 
 loadData();
 
+
+/*
+ * Zegar co sekundę.
+ */
 setInterval(
     updateClock,
     1000
 );
 
+
 updateClock();
 
-// Automatyczne odświeżanie co 3 minuty.
+
+/*
+ * Automatyczne odświeżanie danych
+ * co 3 minuty.
+ */
 setInterval(
     loadData,
     180000
