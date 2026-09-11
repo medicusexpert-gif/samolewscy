@@ -106,3 +106,106 @@ td:nth-child(6) { border-left: 10px solid #f472b6; }
 }
 
 .footer { height: 2vh; text-align: right; font-size: 1.2vh; color: #475569; padding-right: 10px; }
+
+/* ===== WIDOK NA TELEFONIE ===== */
+@media (max-width: 700px) {
+
+    body {
+        overflow: auto;
+        height: auto;
+        min-height: 100vh;
+    }
+
+    .wrapper {
+        height: auto;
+        min-height: 100vh;
+        padding: 0;
+    }
+
+    .header {
+        height: auto;
+        min-height: 60px;
+        padding: 8px 10px;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .title {
+        font-size: 22px;
+        min-width: auto;
+        width: 100%;
+        text-align: center;
+    }
+
+    .time-box {
+        min-width: 0;
+        width: 100%;
+        justify-content: center;
+        gap: 12px;
+    }
+
+    .time {
+        font-size: 24px;
+    }
+
+    .refresh-btn {
+        padding: 7px 10px;
+        font-size: 12px;
+    }
+
+    #month-nav {
+        overflow-x: auto;
+        overflow-y: hidden;
+        flex-wrap: nowrap;
+        justify-content: flex-start;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+    }
+
+    .nav-container {
+        margin: 0;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        justify-content: flex-start;
+        width: 100%;
+    }
+
+    .nav-btn {
+        flex: 0 0 auto;
+        font-size: 12px;
+        padding: 6px 10px;
+    }
+
+    #table-container {
+        height: auto;
+        min-height: 0;
+        overflow-x: auto;
+        overflow-y: visible;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    table {
+        width: 100%;
+        min-width: 700px;
+        height: auto;
+    }
+
+    .tech-data {
+        font-size: 16px;
+    }
+
+    .day,
+    .date {
+        font-size: 13px;
+    }
+
+    th {
+        font-size: 13px !important;
+    }
+
+    .footer {
+        height: auto;
+        padding: 5px 10px;
+        font-size: 10px;
+    }
+}
