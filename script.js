@@ -1,612 +1,185 @@
-const spreadsheetId = "1E4yKKlvwMpPxiM_hL8ZyV-csz_poxcNPkYSLL8fRJXM";
+const publishedSheetId =
+    "2PACX-1vT-_cxzQEMZ6N_YGHvHpHJ998D3JPyTNRcQlsp0PVOGBvdUa2QxZmdllBbrIXFX5ok6YZ_HMHj1nE--";
 
-const monthNames = [
-    "Styczeń",
-    "Luty",
-    "Marzec",
-    "Kwiecień",
-    "Maj",
-    "Czerwiec",
-    "Lipiec",
-    "Sierpień",
-    "Wrzesień",
-    "Październik",
-    "Listopad",
-    "Grudzień"
-];
-
-const technicianNames = [
-    "Przemek",
-    "Agata",
-    "Zuzia",
-    "Mikołaj"
-];
-
+const publishedUrl =
+    `https://docs.google.com/spreadsheets/d/e/${publishedSheetId}/pubhtml`;
+   
+const monthNames = ["Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec", "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień"];
 const logoUrl = "logo.png";
-
 let currentViewMonth = String(new Date().getMonth() + 1).padStart(2, '0');
-
-const nameColors = {
-    2: "#38bdf8",
-    3: "#818cf8",
-    4: "#fbbf24",
-    5: "#f472b6"
-};
-
-
-// ============================================================
-// POBIERANIE DANYCH
-// ============================================================
-
-async function getSheetData(sheetName) {
-
-    const url =
-        `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
-
-    const response = await fetch(url, {
-        cache: "no-store"
-    });
-
-    if (!response.ok) {
-        throw new Error(`Błąd pobierania danych: ${response.status}`);
-    }
-
-    return await response.text();
-}
-
-
-// ============================================================
-// PARSOWANIE CSV
-// ============================================================
 
 function parseCSVLine(line) {
     const result = [];
-    let current = "";
-    let insideQuotes = false;
-
+    let cur = "";
+    let inQuote = false;
+    const sep = line.includes(';') ? ';' : ',';
     for (let i = 0; i < line.length; i++) {
-        const char = line[i];
-
-        if (char === '"') {
-            if (insideQuotes && line[i + 1] === '"') {
-                current += '"';
-                i++;
-            } else {
-                insideQuotes = !insideQuotes;
-            }
-        } else if ((char === ";" || char === ",") && !insideQuotes) {
-            result.push(current);
-            current = "";
-        } else {
-            current += char;
-        }
+        let char = line[i];
+        if (char === '"') inQuote = !inQuote;
+        else if (char === sep && !inQuote) { result.push(cur.trim()); cur = ""; }
+        else cur += char;
     }
-
-    result.push(current);
-    return result;
+    result.push(cur.trim());
+    return result.map(cell => cell.replace(/^"(.*)"$/, '$1'));
 }
-
-
-// ============================================================
-// ŁADOWANIE DANYCH
-// ============================================================
 
 async function loadData() {
-
-    const sheetName =
-        monthNames[parseInt(currentViewMonth, 10) - 1];
-
+    const url = sheetLinks[currentViewMonth];
     try {
+        const res = await fetch(url);
+        const rawData = await res.text();
+        const rows = rawData.split(/\r?\n/).filter(line => line.trim() !== "").map(parseCSVLine);
 
-        const csvText = await getSheetData(sheetName);
+        const now = new Date();
+        const isAlarmTime = (now.getHours() > 15) || (now.getHours() === 15 && now.getMinutes() >= 30);
+        const todayCSV = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        
+        const realMonth = String(now.getMonth() + 1).padStart(2, '0');
+        const isCurrentMonthViewed = (currentViewMonth === realMonth);
 
-        const lines = csvText
-            .replace(/\r/g, "")
-            .split("\n")
-            .filter(line => line.trim() !== "");
+        let html = "<table>";
+        html += `<colgroup><col style="width: 100px;"><col style="width: 130px;"><col style="width: auto;"><col style="width: auto;"><col style="width: auto;"><col style="width: auto;"></colgroup>`;
+        
+        let weekCounter = 0;
+        rows.forEach((row, i) => {
+            if (i > 1 && row[0] && row[0].toLowerCase().includes("poniedziałek")) weekCounter++;
+            const weekClass = weekCounter % 2 === 0 ? "week-even" : "week-odd";
+            const isToday = row[1] && row[1].trim() === todayCSV;
+            const todayRowClass = isToday ? " today-row" : "";
 
-        const rows = lines.map(parseCSVLine);
-
-        let html = `
-            <table>
-                <tbody>
-        `;
-
-        // NAGŁÓWKI
-        for (let i = 0; i < 2 && i < rows.length; i++) {
-
-            html += "<tr>";
-
-            const row = rows[i];
-
-            for (let j = 0; j < 6; j++) {
-
-                const value =
-                    row[j] !== undefined
-                        ? row[j].trim()
-                        : "";
+            html += `<tr class="${weekClass}${todayRowClass}">`;
+            row.forEach((cell, j) => {
+                if (j > 5) return; 
 
                 if (i === 0) {
-
-                    if (j === 0) {
-
-                        html += `
-                            <th class="logo-space"
-                                rowspan="2"
-                                colspan="2"
-                                id="main-logo-container">
-                            </th>
-                        `;
-
-                    } else if (j > 1) {
-
-                        html += `
-                            <th style="
-                                color: ${nameColors[j]};
-                                font-size: 2.2vh;
-                                font-weight: bold;">
-                                ${technicianNames[j - 2]}
-                            </th>
-                        `;
+                    if (j === 0) html += `<th class="logo-space" rowspan="2" colspan="2" id="main-logo-container"></th>`;
+                    else if (j > 1) {
+                        const nameColors = ["", "", "#38bdf8", "#818cf8", "#fbbf24", "#f472b6"];
+                        html += `<th style="color: ${nameColors[j]}; font-size: 2.2vh; font-weight: bold;">${cell}</th>`;
                     }
+                } 
+                else if (i === 1) {
+                    if (j > 1) html += `<th style="color: #64748b; font-size: 1.4vh; font-weight: normal;">${cell}</th>`;
+                } 
+               // ... fragment wewnątrz rows.forEach -> row.forEach -> else ...
+else {
+    let className = (j === 0) ? "day" : (j === 1) ? "date" : "tech-data";
+    let content = (j === 0) ? shortenDay(cell) : (j === 1) ? shortenDate(cell) : cell;
+    
+    let inlineStyle = ""; 
+    let specialClass = "";
+    const cellText = cell.toLowerCase();
 
-                } else {
+    // SPRAWDZANIE CZY WIERSZ NALEŻY DO WYBRANEGO MIESIĄCA
+    // row[1] to data w formacie RRRR-MM-DD
+    const rowDatePart = row[1] ? row[1].split("-") : null;
+    const rowMonth = rowDatePart ? rowDatePart[1] : null; 
+    const isCellInSelectedMonth = (rowMonth === currentViewMonth);
 
-                    if (j > 1) {
-
-                        html += `<th>${value}</th>`;
-
-                    }
-                }
+    if (j > 1) {
+        // JEŚLI WIERSZ NIE JEST Z WYBRANEGO MIESIĄCA LUB OGLĄDAMY INNY MIESIĄC NIŻ OBECNY
+        if (!isCellInSelectedMonth) {
+            inlineStyle = "color: #64748b;"; // Wygaszenie (szary)
+        } else {
+            // Alarm dla dzisiejszego dnia po 15:30
+            if (cellText.includes("8-16") && isToday && isAlarmTime) {
+                specialClass = " alarm-pulse";
             }
-
-            html += "</tr>";
+            
+            // Kolorowanie tylko 8-16
+            if (cellText.includes("8-16")) {
+                content = content.replace(/8-16/i, '<span class="neon-blue-text">8-16</span>');
+            } else if (cellText.includes("parking") || cellText.includes("8:00")) {
+                inlineStyle = "color: #64748b;"; // Szary dla parkingu
+            }
         }
-
-
-        // DANE
-        let weekNumber = 0;
-        let lastDate = null;
-
-        for (let i = 2; i < rows.length; i++) {
-
-            const row = rows[i];
-
-            if (!row || row.length === 0) {
-                continue;
-            }
-
-            const day =
-                row[0] !== undefined
-                    ? row[0].trim()
-                    : "";
-
-            const date =
-                row[1] !== undefined
-                    ? row[1].trim()
-                    : "";
-
-            if (!day && !date) {
-                continue;
-            }
-
-            if (date && date !== lastDate) {
-                weekNumber++;
-                lastDate = date;
-            }
-
-            const weekClass =
-                weekNumber % 2 === 0
-                    ? "week-even"
-                    : "week-odd";
-
-            let isToday = false;
-
-            if (date) {
-
-                let dateObj = null;
-
-                if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-
-                    const parts = date.split("-");
-
-                    dateObj = new Date(
-                        parseInt(parts[0]),
-                        parseInt(parts[1]) - 1,
-                        parseInt(parts[2])
-                    );
-
-                } else if (/^\d{2}\.\d{2}\.\d{4}$/.test(date)) {
-
-                    const parts = date.split(".");
-
-                    dateObj = new Date(
-                        parseInt(parts[2]),
-                        parseInt(parts[1]) - 1,
-                        parseInt(parts[0])
-                    );
-                }
-
-                if (dateObj) {
-
-                    const today = new Date();
-
-                    isToday =
-                        dateObj.getFullYear() === today.getFullYear() &&
-                        dateObj.getMonth() === today.getMonth() &&
-                        dateObj.getDate() === today.getDate();
-                }
-            }
-
-            html += `
-                <tr class="${weekClass}${isToday ? " today-row" : ""}">
-                    <td class="day">${shortenDay(day)}</td>
-                    <td class="date">${shortenDate(date)}</td>
-            `;
-
-            for (let j = 2; j < 6; j++) {
-
-                const cell =
-                    row[j] !== undefined
-                        ? row[j]
-                        : "";
-
-                html += `
-                    <td class="tech-data">
-                        <span>${escapeHtml(cell)}</span>
-                    </td>
-                `;
-            }
-
+    } else {
+        // Dla kolumn Dzień i Data też stosujemy wygaszenie jeśli to inny miesiąc
+        if (!isCellInSelectedMonth) inlineStyle = "color: #475569;"; 
+    }
+    
+    html += `<td class="${className}${specialClass}">
+                <div class="marquee-box">
+                    <span style="${inlineStyle}">${content}</span>
+                </div>
+             </td>`;
+}            });
             html += "</tr>";
-        }
-
-        html += `
-                </tbody>
-            </table>
-        `;
-
+        });
+        html += "</table>";
         document.getElementById("table-container").innerHTML = html;
+        
+        const logoCont = document.getElementById("main-logo-container");
+        if (logoCont) logoCont.innerHTML = `<img src="${logoUrl}" alt="Logo" class="table-logo">`;
 
-
-        // LOGO — BEZ ZMIAN
-        const logoContainer =
-            document.getElementById("main-logo-container");
-
-        if (logoContainer) {
-
-            logoContainer.innerHTML = `
-                <img src="${logoUrl}"
-                     class="table-logo"
-                     alt="Medicus Expert">
-            `;
-        }
-
+        document.getElementById("update-time").innerText = new Date().toLocaleTimeString();
         hideWeekends();
-        applyAlarm();
-        applyMarquee();
-
-        document.getElementById("update-time").textContent =
-            new Date().toLocaleTimeString("pl-PL");
-
-    } catch (error) {
-
-        console.error("Błąd pobierania danych:", error);
-
-        document.getElementById("table-container").innerHTML = `
-            <div style="
-                width:100%;
-                height:100%;
-                display:flex;
-                align-items:center;
-                justify-content:center;
-                color:#f87171;
-                font-size:2.5vh;">
-                Nie udało się pobrać danych.
-            </div>
-        `;
+        setTimeout(initSmartMarquee, 200);
+    } catch (err) { 
+        console.error("Błąd CSV:", err); 
+        setTimeout(loadData, 10000);
     }
 }
 
-
-// ============================================================
-// ESCAPE HTML
-// ============================================================
-
-function escapeHtml(text) {
-
-    return String(text)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+function initSmartMarquee() {
+    const spans = document.querySelectorAll('.tech-data span');
+    spans.forEach(span => {
+        const box = span.parentElement;
+        span.classList.remove('animate-scroll');
+        if (span.offsetWidth > box.offsetWidth) {
+            box.style.justifyContent = "flex-start";
+            const distance = span.offsetWidth - box.offsetWidth + 25; 
+            span.style.setProperty('--scroll-dist', `-${distance}px`);
+            span.classList.add('animate-scroll');
+        } else {
+            box.style.justifyContent = "center";
+        }
+    });
 }
-
-
-// ============================================================
-// SKRÓCENIE DNIA
-// ============================================================
 
 function shortenDay(day) {
-
-    const days = {
-        "poniedziałek": "Pon",
-        "pon": "Pon",
-        "wtorek": "Wt",
-        "wt": "Wt",
-        "środa": "Śr",
-        "sroda": "Śr",
-        "śr": "Śr",
-        "czwartek": "Czw",
-        "czw": "Czw",
-        "piątek": "Pt",
-        "piatek": "Pt",
-        "pt": "Pt",
-        "sobota": "Sob",
-        "sob": "Sob",
-        "niedziela": "Nd",
-        "nd": "Nd"
-    };
-
-    const value =
-        String(day).trim().toLowerCase();
-
-    return days[value] || day;
+    const days = {"poniedziałek":"Pon","wtorek":"Wt","środa":"Śr","czwartek":"Czw","piątek":"Pt","sobota":"Sob","niedziela":"Nd"};
+    return days[day.toLowerCase()] || day;
 }
 
-
-// ============================================================
-// SKRÓCENIE DATY
-// ============================================================
-
-function shortenDate(date) {
-
-    if (!date) {
-        return "";
-    }
-
-    const value = String(date).trim();
-
-    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-
-        const parts = value.split("-");
-
-        return `${parts[2]}.${parts[1]}`;
-    }
-
-    if (/^\d{2}\.\d{2}\.\d{4}$/.test(value)) {
-
-        return value.substring(0, 5);
-    }
-
-    return value;
+function shortenDate(dateStr) {
+    const parts = dateStr.split("-");
+    return parts.length === 3 ? `${parts[2]}.${parts[1]}` : dateStr;
 }
-
-
-// ============================================================
-// UKRYWANIE WEEKENDÓW
-// ============================================================
 
 function hideWeekends() {
-
-    const rows =
-        document.querySelectorAll("#table-container tr");
-
-    rows.forEach(row => {
-
-        const day =
-            row.querySelector(".day");
-
-        if (!day) {
-            return;
-        }
-
-        const value =
-            day.textContent.trim();
-
-        if (value === "Sob" || value === "Nd") {
-            row.style.display = "none";
-        }
+    const rows = document.querySelectorAll("table tr");
+    rows.forEach((row) => {
+        const dayCell = row.querySelector(".day");
+        if (dayCell && (dayCell.innerText === "Sob" || dayCell.innerText === "Nd")) row.style.display = "none";
     });
 }
-
-
-// ============================================================
-// ALARM
-// ============================================================
-
-function applyAlarm() {
-
-    const cells =
-        document.querySelectorAll(".tech-data");
-
-    const now = new Date();
-
-    const currentTime =
-        now.getHours() * 60 + now.getMinutes();
-
-    const alarmStart = 15 * 60 + 30;
-    const alarmEnd = 16 * 60;
-
-    cells.forEach(cell => {
-
-        const text =
-            cell.textContent.trim();
-
-        if (text === "8-16") {
-
-            if (
-                currentTime >= alarmStart &&
-                currentTime < alarmEnd
-            ) {
-                cell.classList.add("alarm-pulse");
-            } else {
-                cell.classList.remove("alarm-pulse");
-            }
-        }
-    });
-}
-
-
-// ============================================================
-// MARQUEE
-// ============================================================
-
-function applyMarquee() {
-
-    const cells =
-        document.querySelectorAll(".tech-data");
-
-    cells.forEach(cell => {
-
-        const text =
-            cell.textContent.trim();
-
-        if (!text) {
-            return;
-        }
-
-        if (cell.scrollWidth > cell.clientWidth) {
-
-            if (!cell.querySelector(".marquee-box")) {
-
-                const original =
-                    cell.innerHTML;
-
-                cell.innerHTML = `
-                    <div class="marquee-box">
-                        <span>${original}</span>
-                    </div>
-                `;
-
-                const box =
-                    cell.querySelector(".marquee-box");
-
-                const span =
-                    box.querySelector("span");
-
-                const distance =
-                    span.scrollWidth - box.clientWidth;
-
-                if (distance > 0) {
-
-                    span.style.setProperty(
-                        "--scroll-dist",
-                        `-${distance}px`
-                    );
-
-                    span.classList.add(
-                        "animate-scroll"
-                    );
-                }
-            }
-        }
-    });
-}
-
-
-// ============================================================
-// NAWIGACJA
-// ============================================================
 
 function renderNav() {
-
-    const nav =
-        document.getElementById("month-nav");
-
-    if (!nav) {
-        return;
+    let navHtml = "";
+    for (let i = 1; i <= 12; i++) {
+        const m = String(i).padStart(2, '0');
+        navHtml += `<button class="nav-btn ${m === currentViewMonth ? 'active' : ''}" onclick="changeMonth('${m}')">${monthNames[i-1]}</button>`;
     }
-
-    nav.innerHTML = "";
-
-    monthNames.forEach((name, index) => {
-
-        const month =
-            String(index + 1).padStart(2, "0");
-
-        const button =
-            document.createElement("button");
-
-        button.className =
-            "nav-btn" +
-            (month === currentViewMonth
-                ? " active"
-                : "");
-
-        button.textContent =
-            name.substring(0, 3);
-
-        button.onclick = () =>
-            changeMonth(month);
-
-        nav.appendChild(button);
-    });
+    document.getElementById("month-nav").innerHTML = navHtml;
 }
 
-
-// ============================================================
-// ZMIANA MIESIĄCA
-// ============================================================
-
-function changeMonth(month) {
-
-    currentViewMonth =
-        String(month).padStart(2, "0");
-
+function changeMonth(m) {
+    currentViewMonth = m;
     renderNav();
     loadData();
 }
 
-
-// ============================================================
-// ZEGAR
-// ============================================================
-
 function updateClock() {
-
+    const clock = document.getElementById("clock");
     const now = new Date();
-
-    const clock =
-        document.getElementById("clock");
-
-    if (clock) {
-
-        clock.textContent =
-            now.toLocaleTimeString(
-                "pl-PL",
-                {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit"
-                }
-            );
-    }
-
-    const title =
-        document.getElementById(
-            "current-month-name"
-        );
-
-    if (title) {
-
-        title.textContent =
-            `${monthNames[now.getMonth()].toUpperCase()} ${now.getFullYear()}`;
-    }
+    if (clock) clock.innerText = now.toLocaleTimeString("pl-PL");
+    const monthHeader = document.getElementById("current-month-name");
+    if (monthHeader) monthHeader.innerText = `${monthNames[parseInt(currentViewMonth)-1].toUpperCase()} 2026`;
 }
 
-
-// ============================================================
-// START
-// ============================================================
-
 renderNav();
-
-updateClock();
-
 loadData();
-
 setInterval(updateClock, 1000);
-
+updateClock();
 setInterval(loadData, 180000);
